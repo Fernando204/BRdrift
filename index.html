@@ -78,6 +78,7 @@ input[type=range]{width:150px}
 #pbtn{position:fixed;left:12px;top:calc(116px + env(safe-area-inset-top,0px));border:0;color:#fff;font-size:13px;cursor:pointer;padding:6px 12px;font-family:inherit}
 @media (min-width:900px){#intro{justify-content:flex-start;padding-left:7vw}}
 body.cidade .mPista{display:none}body:not(.cidade) .mCidade{display:none}body.cidade #time{font-size:17px;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#top .osm{display:block;font-size:10px;opacity:.6}body.cidade #mini{border-radius:50%}
+#gps{position:fixed;inset:0;z-index:40;background:#1d2a1f;touch-action:none}#gpscv{display:block;width:100%;height:100%;cursor:crosshair}#gpsinfo{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);font-size:13px;max-width:92vw;text-align:center}#gpsbtns{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:8px}#gpszoom{position:fixed;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}#gps .btn{width:auto;margin:0;padding:10px 16px}#gpszoom .btn{width:46px;font-size:22px;padding:4px}#gpsosm{position:fixed;left:10px;bottom:8px;font-size:11px;opacity:.7}#dest{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));font-size:15px;font-weight:600;white-space:nowrap;max-width:60vw;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -122,9 +123,17 @@ body.cidade .mPista{display:none}body:not(.cidade) .mCidade{display:none}body.ci
 <div id="msg"></div>
 <button id="pbtn" class="p">☰ Menu</button>
 </div>
+<div id="dest" class="p" hidden></div>
+<div id="gps" hidden>
+<canvas id="gpscv"></canvas>
+<div id="gpsinfo" class="p">Clique numa rua para marcar o destino · arraste para mover · roda do mouse ou pinça para zoom · botão direito limpa · <b>M</b> ou <b>Esc</b> fecha</div>
+<div id="gpszoom"><button class="btn" id="gpsmais">+</button><button class="btn" id="gpsmenos">−</button></div>
+<div id="gpsbtns"><button class="btn" id="gpslimpa">Limpar destino</button><button class="btn pri" id="gpsfecha">Voltar a dirigir</button></div>
+<small id="gpsosm">© colaboradores do OpenStreetMap</small>
+</div>
 <div id="touch">
 <div id="tl"><button class="tb big" data-k="left">◀</button><button class="tb big" data-k="right">▶</button></div>
-<div id="tx"><button class="tb sm" data-s="1">↰</button><button class="tb sm" data-s="3">⚠</button><button class="tb sm" data-s="2">↱</button><button class="tb sm" data-f="L">💡</button><button class="tb sm" data-f="N">🌙</button><button class="tb sm" data-a="cam">📷</button><button class="tb sm" data-a="reset">↺</button><button class="tb sm" data-a="paint">🎨</button></div>
+<div id="tx"><button class="tb sm" data-s="1">↰</button><button class="tb sm" data-s="3">⚠</button><button class="tb sm" data-s="2">↱</button><button class="tb sm" data-f="L">💡</button><button class="tb sm" data-f="N">🌙</button><button class="tb sm" data-a="cam">📷</button><button class="tb sm" data-a="map">🗺</button><button class="tb sm" data-a="reset">↺</button><button class="tb sm" data-a="paint">🎨</button></div>
 <div id="tg"><button class="tb sm" data-g="dn">−</button><button class="tb sm" data-g="mode" id="gm">A</button><button class="tb sm" data-g="up">+</button></div>
 <div id="tr"><button class="tb" data-k="hb">⤾</button><button class="tb big" data-k="brake">■</button><button class="tb big gas" data-k="accel">▲</button></div>
 </div>
@@ -4134,13 +4143,27 @@ function construirCidade(D) {
     bufs.terra && malha(bufs.terra, matPiso(texTerra, -2), 6);
     linhas.p.length && malha(linhas, matPiso(texFaixa, -3, { transparent: !0, alphaTest: .5, roughness: .6 }), 1);
 
+    // ------------------------------------------------------------ GPS: grafo das ruas (cruzamentos = nós)
+    const nos = new Map, nosXY = [], arestas = [], adj = [];
+    const no = (x, z) => {
+        const k = Math.round(x * 10) + "," + Math.round(z * 10);
+        let i = nos.get(k);
+        return i === undefined && (i = nosXY.length / 2, nos.set(k, i), nosXY.push(x, z), adj.push([])), i;
+    };
+    for (const r of ruas) {
+        const P = r.P, a = no(P[0], P[1]), b = no(P[P.length - 2], P[P.length - 1]), acum = [0];
+        let L = 0;
+        for (let k = 0; k < P.length / 2 - 1; k++) L += Math.hypot(P[k * 2 + 2] - P[k * 2], P[k * 2 + 3] - P[k * 2 + 1]), acum.push(L);
+        r.e = arestas.length, arestas.push({ a, b, L, P, acum, n: r.n }), adj[a].push(r.e), adj[b].push(r.e);
+    }
+
     // ------------------------------------------------------------ índice espacial das ruas
     const CR = 16, hashRua = new Map, segs = [];
     const chave = (i, j) => i * 100003 + j;
     for (const r of ruas) {
         const hw = LW[r.c];
         for (let k = 0; k < r.P.length / 2 - 1; k++) {
-            const s = [r.P[k * 2], r.P[k * 2 + 1], r.P[k * 2 + 2], r.P[k * 2 + 3], hw, r.n, r.c], id = segs.length;
+            const s = [r.P[k * 2], r.P[k * 2 + 1], r.P[k * 2 + 2], r.P[k * 2 + 3], hw, r.n, r.c, r.e, k], id = segs.length;
             segs.push(s);
             for (let i = Math.floor((Math.min(s[0], s[2]) - hw - 30) / CR); i <= Math.floor((Math.max(s[0], s[2]) + hw + 30) / CR); i++)
                 for (let j = Math.floor((Math.min(s[1], s[3]) - hw - 30) / CR); j <= Math.floor((Math.max(s[1], s[3]) + hw + 30) / CR); j++) {
@@ -4254,6 +4277,160 @@ function construirCidade(D) {
         }
     }
 
+    // ------------------------------------------------------------ GPS: projeção na rede, rota (A*) e desenho
+    function projetar(x, z) {       // ponto da rede de ruas mais próximo de (x, z)
+        let best = null;
+        const testa = s => {
+            const dx = s[2] - s[0], dz = s[3] - s[1], L2 = dx * dx + dz * dz;
+            const t = L2 ? Math.max(0, Math.min(1, ((x - s[0]) * dx + (z - s[1]) * dz) / L2)) : 0;
+            const px = s[0] + dx * t, pz = s[1] + dz * t, d = Math.hypot(x - px, z - pz);
+            (!best || d < best.d) && (best = { d, e: s[7], pos: arestas[s[7]].acum[s[8]] + t * Math.sqrt(L2), x: px, z: pz });
+        };
+        for (const id of hashRua.get(chave(Math.floor(x / CR), Math.floor(z / CR))) || []) testa(segs[id]);
+        if (!best || best.d > 25) for (const s of segs) testa(s);
+        return best;
+    }
+    function trecho(e, de, ate, out) {     // pontos da aresta e entre as distâncias de -> ate (pode ir ao contrário)
+        const A = arestas[e], P = A.P, ac = A.acum, n = ac.length;
+        const ponto = d => {
+            let k = 0;
+            for (; k < n - 2 && ac[k + 1] < d; k++);
+            const L = ac[k + 1] - ac[k] || 1, t = Math.max(0, Math.min(1, (d - ac[k]) / L));
+            return [P[k * 2] + (P[k * 2 + 2] - P[k * 2]) * t, P[k * 2 + 1] + (P[k * 2 + 3] - P[k * 2 + 1]) * t];
+        };
+        out.push(...ponto(de));
+        if (de <= ate) { for (let k = 1; k < n - 1; k++) ac[k] > de && ac[k] < ate && out.push(P[k * 2], P[k * 2 + 1]); }
+        else for (let k = n - 2; k > 0; k--) ac[k] < de && ac[k] > ate && out.push(P[k * 2], P[k * 2 + 1]);
+        out.push(...ponto(ate));
+    }
+    function calcularRota(o, d) {          // A* entre duas projeções; devolve {pts, L}
+        const pts = [];
+        if (o.e === d.e) return trecho(o.e, o.pos, d.pos, pts), { pts, L: Math.abs(d.pos - o.pos) };
+        const N = adj.length, g = new Float64Array(N).fill(Infinity), via = new Int32Array(N).fill(-1), fechado = new Uint8Array(N);
+        const heap = [], push = (f, v) => {
+            heap.push([f, v]);
+            for (let i = heap.length - 1; i > 0;) { const p = i - 1 >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]], i = p; }
+        }, pop = () => {
+            const top = heap[0], last = heap.pop();
+            if (heap.length) {
+                heap[0] = last;
+                for (let i = 0;;) {
+                    const l = i * 2 + 1, r = l + 1;
+                    let m = i;
+                    l < heap.length && heap[l][0] < heap[m][0] && (m = l), r < heap.length && heap[r][0] < heap[m][0] && (m = r);
+                    if (m == i) break;
+                    [heap[m], heap[i]] = [heap[i], heap[m]], i = m;
+                }
+            }
+            return top;
+        };
+        const h = v => Math.hypot(nosXY[v * 2] - d.x, nosXY[v * 2 + 1] - d.z);
+        const eo = arestas[o.e], ed = arestas[d.e];
+        g[eo.a] = o.pos, g[eo.b] = Math.min(g[eo.b], eo.L - o.pos), push(g[eo.a] + h(eo.a), eo.a), push(g[eo.b] + h(eo.b), eo.b);
+        let melhor = Infinity, fim = -1;
+        while (heap.length) {
+            const [f, v] = pop();
+            if (fechado[v]) continue;
+            if (f >= melhor) break;
+            fechado[v] = 1;
+            v == ed.a && g[v] + d.pos < melhor && (melhor = g[v] + d.pos, fim = v);
+            v == ed.b && g[v] + ed.L - d.pos < melhor && (melhor = g[v] + ed.L - d.pos, fim = v);
+            for (const e of adj[v]) {
+                const A = arestas[e], u = A.a == v ? A.b : A.a, ng = g[v] + A.L;
+                ng < g[u] && (g[u] = ng, via[u] = e, push(ng + h(u), u));
+            }
+        }
+        if (fim < 0) return null;
+        const cadeia = [];
+        for (let v = fim; via[v] >= 0;) { const e = via[v], A = arestas[e]; cadeia.push([e, v]), v = A.a == v ? A.b : A.a; }
+        let ini = fim;
+        for (const [e] of cadeia) { const A = arestas[e]; ini = A.a == ini ? A.b : A.a; }
+        trecho(o.e, o.pos, ini == eo.a ? 0 : eo.L, pts);
+        for (let k = cadeia.length - 1; k >= 0; k--) {
+            const [e, v] = cadeia[k], A = arestas[e];
+            v == A.b ? trecho(e, 0, A.L, pts) : trecho(e, A.L, 0, pts);
+        }
+        return trecho(d.e, fim == ed.a ? 0 : ed.L, d.pos, pts), { pts, L: melhor };
+    }
+
+    // linha roxa no asfalto (setas andando em direção ao destino) e feixe de luz no destino
+    const texSeta = Pr(64, 64, (g, w, h) => {
+        g.clearRect(0, 0, w, h), g.fillStyle = "rgba(190,80,255,.55)", g.fillRect(0, 0, w, h);
+        g.strokeStyle = "#f4dcff", g.lineWidth = 9, g.lineJoin = "round", g.beginPath(), g.moveTo(12, 44), g.lineTo(32, 20), g.lineTo(52, 44), g.stroke();
+    }, 1, 1);
+    const matRota = new Zt({ map: texSeta, transparent: !0, depthWrite: !1, side: Wt, polygonOffset: !0, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
+    const linhaRota = new ut(new St, matRota);
+    linhaRota.frustumCulled = !1, linhaRota.renderOrder = 3, linhaRota.visible = !1, grupo.add(linhaRota);
+    const feixe = new ut(new Es(2.2, 2.2, 90, 24, 1, !0), new Zt({ color: 12603135, transparent: !0, opacity: .28, depthWrite: !1, side: Wt, blending: 2 }));
+    const anel = new ut(new Es(4.5, 4.5, .12, 32), new Zt({ color: 12603135, transparent: !0, opacity: .6, depthWrite: !1 }));
+    feixe.position.y = 45, feixe.renderOrder = 4;
+    const marco = new qt;
+    marco.add(feixe, anel), marco.visible = !1, grupo.add(marco);
+    function montarLinha(pts) {
+        const p = [], uv = [], ix = [], hw = .75;
+        let dist = 0;
+        for (let k = 0; k < pts.length / 2; k++) {
+            const a = Math.max(0, k - 1), b = Math.min(pts.length / 2 - 1, k + 1);
+            let tx = pts[b * 2] - pts[a * 2], tz = pts[b * 2 + 1] - pts[a * 2 + 1], tl = Math.hypot(tx, tz) || 1;
+            tx /= tl, tz /= tl;
+            k && (dist += Math.hypot(pts[k * 2] - pts[k * 2 - 2], pts[k * 2 + 1] - pts[k * 2 - 1]));
+            p.push(pts[k * 2] - tz * hw, .08, pts[k * 2 + 1] + tx * hw, pts[k * 2] + tz * hw, .08, pts[k * 2 + 1] - tx * hw);
+            uv.push(0, dist / 2.6, 1, dist / 2.6);
+            k && ix.push(k * 2 - 2, k * 2 - 1, k * 2, k * 2 - 1, k * 2 + 1, k * 2);
+        }
+        const g = new St;
+        g.setAttribute("position", new _t(p, 3)), g.setAttribute("uv", new _t(uv, 2)), g.setIndex(ix);
+        linhaRota.geometry.dispose(), linhaRota.geometry = g, linhaRota.visible = pts.length >= 4;
+    }
+    let destino = null, rotaAtual = null, tRota = 0;
+    const fmtDist = m => m < 1e3 ? Math.round(m / 10) * 10 + " m" : (m / 1e3).toFixed(1).replace(".", ",") + " km";
+    function limparDestino() {
+        destino = rotaAtual = null, linhaRota.visible = marco.visible = !1, Ne("dest").hidden = !0;
+    }
+    function definirDestino(x, z) {
+        const p = projetar(x, z);
+        if (!p || p.d > 60) return !1;
+        destino = p, marco.position.set(p.x, 0, p.z), marco.visible = !0, tRota = 0;
+        return !0;
+    }
+    function atualizarGps(K, dt) {
+        if (!destino) return;
+        texSeta.offset.y -= dt * 1.4, feixe.rotation.y += dt;
+        if ((tRota -= dt) > 0) return;
+        tRota = .6;
+        const o = projetar(K.x, K.z);
+        if (!o) return;
+        const r = calcularRota(o, destino);
+        if (!r) { Ne("dest").hidden = !1, Ne("dest").textContent = "Sem caminho até o destino"; return; }
+        rotaAtual = r, montarLinha(r.pts);
+        const nome = D.nomes[arestas[destino.e].n] || "Destino";
+        Ne("dest").hidden = !1, Ne("dest").innerHTML = "<span style='color:#d48cff'>◆</span> " + nome + " \xB7 " + fmtDist(r.L + o.d);
+        if (r.L < 14 && o.d < 12) xa("Voc\xEA chegou ao destino!", 3), limparDestino();
+    }
+    function desenharGrande(g, T, s, K) {   // mapa em tela cheia (vetorial)
+        g.lineCap = g.lineJoin = "round";
+        for (const r of ruas.slice().sort((a, b) => b.c - a.c)) {
+            g.strokeStyle = r.c == 7 ? "#8a7458" : r.c <= 1 ? "#f2c94c" : r.c == 2 ? "#ffffff" : "#c9cdd2";
+            g.lineWidth = Math.max(r.c <= 2 ? 2 : 1, LW[r.c] * 2 * s), g.beginPath();
+            for (let k = 0; k < r.P.length; k += 2) { const [x, y] = T(r.P[k], r.P[k + 1]); k ? g.lineTo(x, y) : g.moveTo(x, y); }
+            g.stroke();
+        }
+        if (rotaAtual) {
+            g.strokeStyle = "#b44dff", g.lineWidth = Math.max(4, 3 * s), g.beginPath();
+            const P = rotaAtual.pts;
+            for (let k = 0; k < P.length; k += 2) { const [x, y] = T(P[k], P[k + 1]); k ? g.lineTo(x, y) : g.moveTo(x, y); }
+            g.stroke();
+        }
+        if (destino) {
+            const [x, y] = T(destino.x, destino.z);
+            g.fillStyle = "#b44dff", g.strokeStyle = "#fff", g.lineWidth = 2, g.beginPath(), g.arc(x, y - 16, 9, Math.PI * .85, Math.PI * .15), g.lineTo(x, y), g.closePath(), g.fill(), g.stroke();
+            g.fillStyle = "#fff", g.beginPath(), g.arc(x, y - 16, 3.5, 0, 7), g.fill();
+        }
+        const [cx, cy] = T(K.x, K.z), fx = Math.sin(K.h), fz = Math.cos(K.h);
+        g.fillStyle = "#ff4d3a", g.strokeStyle = "#fff", g.lineWidth = 2, g.beginPath();
+        g.moveTo(cx + fx * 11, cy + fz * 11), g.lineTo(cx - fx * 7 + fz * 7, cy - fz * 7 - fx * 7), g.lineTo(cx - fx * 3, cy - fz * 3), g.lineTo(cx - fx * 7 - fz * 7, cy - fz * 7 + fx * 7), g.closePath(), g.fill(), g.stroke();
+    }
+
     grupo.visible = !1, It.add(grupo);
     let nomeAtual = "", tNome = 0;
     return {
@@ -4305,12 +4482,26 @@ function construirCidade(D) {
             return nomeAtual = p && p[0] < p[2][4] + 12 && D.nomes[p[2][5]] || "Salto de Pirapora";
         },
         desenharMini(g, cv, K) {   // mapa girando com o carro (frente para cima), ~520 m de diâmetro
-            const W = cv.width, f = W / 520 / mk;
+            const W = cv.width, f = W / 520 / mk, s = W / 520;
             g.clearRect(0, 0, W, W), g.save(), g.beginPath(), g.arc(W / 2, W / 2, W / 2 - 2, 0, 7), g.clip();
             g.translate(W / 2, W / 2), g.rotate(-Math.PI / 2 - Math.atan2(Math.cos(K.h), Math.sin(K.h)));
             g.drawImage(mapa, -(K.x + M + 100) * mk * f, -(K.z + M + 100) * mk * f, MS * f, MS * f);
+            if (rotaAtual) {
+                const P = rotaAtual.pts;
+                g.strokeStyle = "#b44dff", g.lineWidth = 4, g.lineCap = g.lineJoin = "round", g.beginPath();
+                for (let k = 0; k < P.length; k += 2) k ? g.lineTo((P[k] - K.x) * s, (P[k + 1] - K.z) * s) : g.moveTo((P[k] - K.x) * s, (P[k + 1] - K.z) * s);
+                g.stroke();
+            }
+            if (destino) {     // marcador do destino (preso na borda quando está longe, como no GTA)
+                let dx = (destino.x - K.x) * s, dz = (destino.z - K.z) * s;
+                const l = Math.hypot(dx, dz), R = W / 2 - 9;
+                l > R && (dx *= R / l, dz *= R / l);
+                g.fillStyle = "#b44dff", g.strokeStyle = "#fff", g.lineWidth = 2, g.beginPath(), g.arc(dx, dz, 6, 0, 7), g.fill(), g.stroke();
+            }
             g.restore(), g.fillStyle = "#ff4d3a", g.beginPath(), g.moveTo(W / 2, W / 2 - 8), g.lineTo(W / 2 + 5.5, W / 2 + 6), g.lineTo(W / 2 - 5.5, W / 2 + 6), g.closePath(), g.fill();
         },
+        definirDestino, limparDestino, atualizarGps, desenharGrande,
+        temDestino: () => !!destino,
         noite(v) { uNoite.value = v ? 1 : 0; }
     };
 }
@@ -4318,6 +4509,7 @@ function construirCidade(D) {
 function definirMapa(c) {
     if (c && !window.MAPA_SALTO) { Ne("ld").textContent = "Arquivo salto_de_pirapora.js não encontrado."; return; }
     if (c && !cidade) cidade = construirCidade(window.MAPA_SALTO), cidade.noite(Lr);
+    cidade && cidade.limparDestino();
     MODO_CIDADE = !!c;
     for (const o of objsPista) o.visible = !c;
     cidade && (cidade.grupo.visible = !!c);
@@ -4327,6 +4519,84 @@ function definirMapa(c) {
     for (const m of [dy, py]) m.pos.fill(0), m.g.attributes.position.needsUpdate = !0;
     Ir = !1, sa = 0, Is = 7, Ne("lap").textContent = 1, Ne("time").textContent = c ? "" : "0:00.000";
     ma(pt - 6), Ui = K.h, Cd();
+}
+
+// ===================================================================================
+// MAPA EM TELA CHEIA / GPS (tecla M) — clique numa rua para marcar o destino
+// ===================================================================================
+var gpsAberto = !1,
+    gpsV = { x: 0, z: 0, s: .3 },
+    gpsPtrs = new Map,
+    gpsArr = null;
+
+function abrirGps() {
+    if (!MODO_CIDADE || !cidade) { xa("O mapa com GPS est\xE1 dispon\xEDvel em Salto de Pirapora", 2.5); return; }
+    gpsAberto = !0;
+    for (let i in wn) wn[i] = 0;
+    gpsV.x = K.x, gpsV.z = K.z, gpsV.s = Math.min(innerWidth, innerHeight) / 1400;
+    Ne("gps").hidden = !1, redimGps();
+}
+
+function fecharGps() {
+    gpsAberto = !1, Ne("gps").hidden = !0, gpsPtrs.clear(), Ah = performance.now();
+}
+
+function redimGps() {
+    const c = Ne("gpscv"), r = Math.min(devicePixelRatio, 2);
+    c.width = innerWidth * r, c.height = innerHeight * r, desenharGps();
+}
+
+function desenharGps() {
+    if (!gpsAberto) return;
+    const c = Ne("gpscv"), g = c.getContext("2d"), r = c.width / innerWidth, W = innerWidth, H = innerHeight;
+    g.setTransform(r, 0, 0, r, 0, 0), g.fillStyle = "#1d2a1f", g.fillRect(0, 0, W, H);
+    cidade.desenharGrande(g, (x, z) => [W / 2 + (x - gpsV.x) * gpsV.s, H / 2 + (z - gpsV.z) * gpsV.s], gpsV.s, K);
+}
+
+function zoomGps(f, mx, my) {
+    const W = innerWidth, H = innerHeight, wx = gpsV.x + (mx - W / 2) / gpsV.s, wz = gpsV.z + (my - H / 2) / gpsV.s;
+    gpsV.s = Ft.clamp(gpsV.s * f, .06, 5), gpsV.x = wx - (mx - W / 2) / gpsV.s, gpsV.z = wz - (my - H / 2) / gpsV.s;
+    const L = MAPA_SALTO.meia;
+    gpsV.x = Ft.clamp(gpsV.x, -L, L), gpsV.z = Ft.clamp(gpsV.z, -L, L), desenharGps();
+}
+{
+    const c = Ne("gpscv");
+    c.addEventListener("contextmenu", e => e.preventDefault());
+    c.addEventListener("pointerdown", e => {
+        c.setPointerCapture(e.pointerId), gpsPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, b: e.button });
+        gpsArr = gpsPtrs.size > 1 ? 1 : 0;
+    });
+    c.addEventListener("pointermove", e => {
+        const p = gpsPtrs.get(e.pointerId);
+        if (!p) return;
+        if (gpsPtrs.size == 2) {     // pinça para zoom
+            const [a, b] = [...gpsPtrs.values()], d0 = Math.hypot(a.x - b.x, a.y - b.y);
+            p.x = e.clientX, p.y = e.clientY;
+            const d1 = Math.hypot(a.x - b.x, a.y - b.y);
+            d0 > 0 && zoomGps(d1 / d0, (a.x + b.x) / 2, (a.y + b.y) / 2), gpsArr = 1;
+            return;
+        }
+        const dx = e.clientX - p.x, dy = e.clientY - p.y;
+        p.x = e.clientX, p.y = e.clientY;
+        Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > 5 && (gpsArr = 1);
+        gpsArr && (gpsV.x -= dx / gpsV.s, gpsV.z -= dy / gpsV.s, desenharGps());
+    });
+    const solta = e => {
+        const p = gpsPtrs.get(e.pointerId);
+        if (!p) return;
+        gpsPtrs.delete(e.pointerId);
+        if (gpsArr || e.type == "pointercancel") { gpsPtrs.size || (gpsArr = 0); return; }
+        if (p.b == 2) { cidade.limparDestino(), desenharGps(); return; }
+        const x = gpsV.x + (e.clientX - innerWidth / 2) / gpsV.s, z = gpsV.z + (e.clientY - innerHeight / 2) / gpsV.s;
+        cidade.definirDestino(x, z) ? (cidade.atualizarGps(K, 1), desenharGps()) : (Ne("gpsinfo").textContent = "Clique mais perto de uma rua para marcar o destino.");
+    };
+    c.addEventListener("pointerup", solta), c.addEventListener("pointercancel", solta);
+    c.addEventListener("wheel", e => { e.preventDefault(), zoomGps(Math.exp(-e.deltaY * .0015), e.clientX, e.clientY); }, { passive: !1 });
+    Ne("gpsfecha").onclick = fecharGps;
+    Ne("gpslimpa").onclick = () => { cidade.limparDestino(), desenharGps(); };
+    Ne("gpsmais").onclick = () => zoomGps(1.4, innerWidth / 2, innerHeight / 2);
+    Ne("gpsmenos").onclick = () => zoomGps(1 / 1.4, innerWidth / 2, innerHeight / 2);
+    addEventListener("resize", () => gpsAberto && redimGps());
 }
 
 var cy = [
@@ -4735,6 +5005,7 @@ var wn = {},
         ["night", "Dia / noite", ["KeyN", ""]],
         ["cam", "Trocar c\xE2mera", ["KeyC", ""]],
         ["reset", "Voltar \xE0 pista", ["KeyR", ""]],
+        ["map", "Mapa / GPS", ["KeyM", ""]],
         ["paint", "Trocar pintura", ["KeyP", ""]],
         ["up", "Subir marcha", ["ShiftLeft", "KeyF"]],
         ["dn", "Descer marcha", ["ControlLeft", "KeyV"]],
@@ -4762,6 +5033,7 @@ var _r = i => hn[i].some(e => e && wn[e]) || !!wn["@" + i],
             Lh ^= 1
         },
         reset: () => ma(MODO_CIDADE ? -1 : Ct),
+        map: abrirGps,
         paint: cd,
         up: Md,
         dn: Sd,
@@ -4769,6 +5041,10 @@ var _r = i => hn[i].some(e => e && wn[e]) || !!wn["@" + i],
     };
 addEventListener("keydown", i => {
     let e = dd(i.code);
+    if (gpsAberto) {
+        (e == "Escape" || hn.map.includes(e)) && (i.preventDefault(), fecharGps());
+        return
+    }
     if (Kn) {
         i.preventDefault(), By(e);
         return
@@ -4826,7 +5102,7 @@ document.querySelectorAll("[data-g]").forEach(i => i.addEventListener("pointerdo
 document.querySelectorAll("[data-a]").forEach(i => i.addEventListener("pointerdown", e => {
     if (e.preventDefault(), !Vt || !nt) return;
     let t = i.dataset.a;
-    t == "cam" ? Lh ^= 1 : t == "reset" ? ma(MODO_CIDADE ? -1 : Ct) : cd()
+    t == "map" ? abrirGps() : t == "cam" ? Lh ^= 1 : t == "reset" ? ma(MODO_CIDADE ? -1 : Ct) : cd()
 }));
 
 function pd() {
@@ -5172,9 +5448,10 @@ var Ah = performance.now();
 function Rd(i) {
     requestAnimationFrame(Rd);
     let e = Math.min((i - Ah) / 1e3, .05);
-    if (Ah = i, Vt && nt && !Jn) {
+    if (Ah = i, Vt && nt && !Jn && !gpsAberto) {
         let t = Math.ceil(e / .0085);
         for (let n = 0; n < t; n++) Ty(e / t);
+        MODO_CIDADE && cidade.atualizarGps(K, e);
         if (xy(e), Ne("time").textContent = MODO_CIDADE ? cidade.nomeRua(K.x, K.z) : Ir ? ca(i - la) : "0:00.000", Uy(), Oy(), tt) {
             let n = tt.currentTime,
                 s = 38 + _d * 120;
@@ -5211,7 +5488,7 @@ var Fy = {
     ta = i => Oh(hn[i].find(e => e) || "");
 
 function Cd() {
-    Ne("help").textContent = ta("cam") + " c\xE2mera \xB7 " + ta("reset") + (MODO_CIDADE ? " voltar \xE0 rua \xB7 " : " voltar \xE0 pista \xB7 ") + ta("lights") + " far\xF3is \xB7 " + ta("man") + " manual \xB7 Esc menu"
+    Ne("help").textContent = ta("cam") + " c\xE2mera \xB7 " + ta("reset") + (MODO_CIDADE ? " voltar \xE0 rua \xB7 " : " voltar \xE0 pista \xB7 ") + ta("lights") + " far\xF3is \xB7 " + ta("man") + " manual \xB7 " + (MODO_CIDADE ? ta("map") + " mapa/GPS \xB7 " : "") + "Esc menu"
 }
 
 function Id() {

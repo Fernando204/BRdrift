@@ -113,6 +113,12 @@ def earclip(poly):
 # ---------------------------------------------------------------- leitura
 dados = json.loads(ENTRADA.read_text(encoding="utf-8"))
 ruas, pracas, nomes, nome_idx = [], [], [], {}
+uso = {}                  # quantas vezes cada ponto aparece nas vias (> 1 = cruzamento)
+for f in dados["features"]:
+    if f["geometry"]["type"] == "LineString" and f["properties"].get("highway") in TIPOS:
+        for c in f["geometry"]["coordinates"]:
+            key = (round(c[0], 7), round(c[1], 7))
+            uso[key] = uso.get(key, 0) + 1
 for f in dados["features"]:
     g, p = f["geometry"], f["properties"]
     h = p.get("highway")
@@ -123,22 +129,33 @@ for f in dados["features"]:
         continue
     if g["type"] != "LineString" or h not in TIPOS:
         continue
-    pts = [proj(*c) for c in g["coordinates"]]
-    run = []
-    for a, b in zip(pts, pts[1:]):
-        c = clip_seg(a, b)
-        if c is None:
-            if len(run) > 1:
-                ruas.append((h, p.get("name") or "", run))
-            run = []
-            continue
-        if not run or math.dist(run[-1], c[0]) > 0.01:
-            if len(run) > 1:
-                ruas.append((h, p.get("name") or "", run))
-            run = [c[0]]
-        run.append(c[1])
-    if len(run) > 1:
-        ruas.append((h, p.get("name") or "", run))
+    # divide a via nos cruzamentos, para que a simplificação não apague o ponto em comum
+    # (a rede de ruas precisa ficar conectada para o GPS calcular rotas)
+    coords = g["coordinates"]
+    pedacos, atual = [], [coords[0]]
+    for i, c in enumerate(coords[1:], 1):
+        atual.append(c)
+        if i < len(coords) - 1 and uso[(round(c[0], 7), round(c[1], 7))] > 1:
+            pedacos.append(atual)
+            atual = [c]
+    pedacos.append(atual)
+    for ped in pedacos:
+        pts = [proj(*c) for c in ped]
+        run = []
+        for a, b in zip(pts, pts[1:]):
+            c = clip_seg(a, b)
+            if c is None:
+                if len(run) > 1:
+                    ruas.append((h, p.get("name") or "", run))
+                run = []
+                continue
+            if not run or math.dist(run[-1], c[0]) > 0.01:
+                if len(run) > 1:
+                    ruas.append((h, p.get("name") or "", run))
+                run = [c[0]]
+            run.append(c[1])
+        if len(run) > 1:
+            ruas.append((h, p.get("name") or "", run))
 
 ruas = [(h, n, rdp(r, 0.35)) for h, n, r in ruas]
 print(f"ruas no mapa: {len(ruas)}, {sum(math.dist(a, b) for _, _, r in ruas for a, b in zip(r, r[1:])) / 1000:.0f} km")
