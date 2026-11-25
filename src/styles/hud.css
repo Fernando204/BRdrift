@@ -1,0 +1,56 @@
+/* Painel durante o jogo: tempo/rua, minimapa, mostradores, setas, mensagens, ações e controles de toque */
+#hud{display:none}
+#top{position:fixed;left:12px;top:calc(12px + env(safe-area-inset-top,0px));font-variant-numeric:tabular-nums;line-height:1.5;font-size:14px}
+#top b{font-size:22px;display:block}
+#top .osm{display:block;font-size:10px;opacity:.6}
+#mini{position:fixed;right:12px;top:calc(12px + env(safe-area-inset-top,0px));width:140px;height:140px;padding:0}
+#sp{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:6px}
+#gg{display:block;width:340px;height:170px}
+#sg{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));display:flex;gap:44px;font-size:34px;line-height:1}
+#sg span{color:rgba(255,255,255,.28)}
+#hl{font-size:22px;opacity:.25;align-self:center}
+#hl.lo{opacity:1}
+#hl.hi{opacity:1;filter:drop-shadow(0 0 8px #5ab0ff)}
+#sg span.on{color:#3ddc4b;text-shadow:0 0 12px #3ddc4b}
+#msg{position:fixed;left:50%;top:22%;transform:translateX(-50%);font-size:22px;font-weight:600;background:var(--panel);padding:10px 20px;border-radius:12px;opacity:0;transition:opacity .4s;white-space:nowrap}
+#help{position:fixed;left:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));font-size:12px;opacity:.9;transition:opacity 1.5s;line-height:1.6}
+#pbtn{position:fixed;left:12px;top:calc(116px + env(safe-area-inset-top,0px));border:0;color:#fff;font-size:13px;cursor:pointer;padding:6px 12px;font-family:inherit}
+#bmodo{position:fixed;left:96px;top:calc(116px + env(safe-area-inset-top,0px));border:0;color:#fff;font-size:13px;cursor:pointer;padding:6px 12px;font-family:inherit}
+#dest{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));font-size:15px;font-weight:600;white-space:nowrap;max-width:60vw;overflow:hidden;text-overflow:ellipsis}
+
+/* Botões de ação contextuais (porta, entrar, sair, partida) */
+#acao{position:fixed;left:50%;bottom:calc(205px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:10px;z-index:5}
+#acao button{background:rgba(12,16,24,.72);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:10px 16px;font:600 15px system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(6px);white-space:nowrap}
+#acao button:hover{border-color:#fff}
+#acao button:disabled{opacity:.75;cursor:default}
+#acao kbd{margin-left:6px;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.18);font:600 12px system-ui}
+
+/* Mapa da cidade x circuito */
+body.cidade .mPista{display:none}
+body:not(.cidade) .mCidade{display:none}
+body.cidade #time{font-size:17px;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.cidade #mini{border-radius:50%}
+
+/* Controles de toque */
+#touch{display:none;position:fixed;inset:0;pointer-events:none;z-index:5}
+#touch>*{position:fixed;display:flex;gap:10px;pointer-events:auto}
+#tl{left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+#tr{right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));align-items:flex-end}
+#tx{left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(4,46px);gap:8px}
+#tg{right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(108px + env(safe-area-inset-bottom,0px))}
+.tb{width:64px;height:64px;border-radius:50%;border:0;background:var(--panel);color:#fff;font-size:24px;padding:0;touch-action:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+.tb.big{width:82px;height:82px;font-size:30px}
+.tb.sm{width:46px;height:46px;font-size:18px}
+.tb.gas{background:rgba(255,77,58,.78)}
+.tb:active{background:rgba(255,255,255,.38)}
+body.touch #sp{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;right:auto;left:50%;transform:translateX(-50%);text-align:center;padding:6px 14px}
+body.touch #gg{width:230px;height:115px}
+body.touch #mini{width:96px;height:96px}
+body.touch #help{display:none}
+body.touch #sg{bottom:auto;top:calc(140px + env(safe-area-inset-top,0px))}
+@media (max-aspect-ratio:1/1){
+  #tx{left:12px;transform:none;bottom:calc(108px + env(safe-area-inset-bottom,0px))}
+  body.touch #gg{width:190px;height:95px}
+  body.touch #mini{display:none}
+  body.touch #sg{top:calc(116px + env(safe-area-inset-top,0px))}
+}

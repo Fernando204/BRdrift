@@ -1,0 +1,25 @@
+{
+  "name": "chevette-game",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Jogo de carro 3D (Chevette SL) com circuito e mapa de Salto de Pirapora.",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --format=iife --target=es2022 --minify --sourcemap --legal-comments=eof --outfile=dist/game.js",
+    "dev": "esbuild src/main.js --bundle --format=iife --target=es2022 --sourcemap --outfile=dist/game.js --watch --servedir=. --serve=8765",
+    "optimize:chevette": "node tools/optimize_glb.mjs blender/export/chevette.glb assets/models/vehicles/chevette/chevette.glb",
+    "embed": "python tools/embed_assets.py",
+    "city": "python tools/gerar_cidade.py",
+    "assets": "npm run optimize:chevette && npm run embed"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "esbuild": "^0.24.0",
+    "meshoptimizer": "^1.3.0"
+  }
+}

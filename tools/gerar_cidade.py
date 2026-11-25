@@ -1,13 +1,14 @@
-"""Converte export.geojson (ruas de Salto de Pirapora, OpenStreetMap) em salto_de_pirapora.js.
+"""Converte data/export.geojson (ruas de Salto de Pirapora, OpenStreetMap) em
+assets/maps/salto_de_pirapora/salto_de_pirapora.json, lido pelo jogo (CityMap).
 
-O arquivo gerado define window.MAPA_SALTO com:
+O JSON gerado contém:
   - ruas: tipo, nome e pontos (em decímetros, sistema local em metros: x = leste, z = sul)
   - pracas: triângulos de áreas de pedestre (Calçadão)
   - construcoes: casas, comércios e prédios genéricos posicionados ao longo das ruas
   - arvores: árvores fora das ruas e das construções
   - inicio: posição e rumo de largada
 
-Uso:  python gerar_cidade.py
+Uso:  python tools/gerar_cidade.py   (depois: python tools/embed_assets.py, para abrir via file://)
 Dados das ruas © colaboradores do OpenStreetMap (licença ODbL).
 """
 import json
@@ -15,9 +16,9 @@ import math
 import random
 from pathlib import Path
 
-PASTA = Path(__file__).resolve().parent
-ENTRADA = PASTA / "export.geojson"
-SAIDA = PASTA / "salto_de_pirapora.js"
+RAIZ = Path(__file__).resolve().parent.parent
+ENTRADA = RAIZ / "data" / "export.geojson"
+SAIDA = RAIZ / "assets" / "maps" / "salto_de_pirapora" / "salto_de_pirapora.json"
 
 # Centro: o Calçadão, no centro da cidade
 LON0, LAT0 = -47.5745, -23.6470
@@ -363,10 +364,6 @@ tcod = {"casa": 0, "comercio": 1, "predio": 2}
 for x, z, a, w, d, hgt, tipo, cor in constr:
     saida["construcoes"] += [dm(x), dm(z), int(round(math.degrees(a) * 10)), dm(w), dm(d), dm(hgt), tcod[tipo], cor]
 
-SAIDA.write_text(
-    "// Gerado por gerar_cidade.py a partir de export.geojson. Não edite à mão.\n"
-    "// Ruas de Salto de Pirapora: © colaboradores do OpenStreetMap (ODbL).\n"
-    "window.MAPA_SALTO=" + json.dumps(saida, ensure_ascii=False, separators=(",", ":")) + ";\n",
-    encoding="utf-8",
-)
+SAIDA.parent.mkdir(parents=True, exist_ok=True)
+SAIDA.write_text(json.dumps(saida, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print(f"{SAIDA.name}: {SAIDA.stat().st_size / 1e6:.2f} MB")

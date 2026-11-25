@@ -1,0 +1,34 @@
+/* Menu inicial/pausa (telas principal, opções e controles) e mapa do GPS em tela cheia */
+#intro{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#intro .p{max-width:420px;padding:22px 26px;text-align:center;background:rgba(10,14,22,.66)}
+#intro p{margin:6px 0;opacity:.9;font-size:14px}
+@media (min-width:900px){#intro{justify-content:flex-start;padding-left:7vw}}
+@media (max-height:480px){
+  h1{font-size:20px}
+  #intro p{font-size:12px;margin:3px 0}
+  #intro .p{padding:12px 18px}
+  #go{margin-top:6px;padding:8px 22px}
+}
+.menu{width:min(400px,100%);max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box}
+.sub{margin:4px 0 10px!important}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;text-align:left;font-size:14px}
+.seg{display:flex;gap:6px}
+.seg button{border:0;border-radius:8px;padding:7px 12px;background:rgba(255,255,255,.12);color:#fff;font-size:13px;cursor:pointer;font-family:inherit}
+.seg button.on{background:var(--accent)}
+.sw{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.sw button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.sw button.on{border-color:#fff}
+input[type=range]{width:150px}
+#ctlList{display:grid;grid-template-columns:1fr auto auto;gap:6px 8px;align-items:center;text-align:left;font-size:13px;max-height:44vh;overflow:auto;margin-top:8px;padding-right:4px}
+.kbtn{min-width:66px;border:0;border-radius:7px;padding:6px 8px;background:rgba(255,255,255,.14);color:#fff;font-size:12px;cursor:pointer;font-family:inherit}
+.kbtn.cap{background:var(--accent)}
+
+/* GPS (tecla M) */
+#gps{position:fixed;inset:0;z-index:40;background:#1d2a1f;touch-action:none}
+#gpscv{display:block;width:100%;height:100%;cursor:crosshair}
+#gpsinfo{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);font-size:13px;max-width:92vw;text-align:center}
+#gpsbtns{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:8px}
+#gpszoom{position:fixed;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}
+#gps .btn{width:auto;margin:0;padding:10px 16px}
+#gpszoom .btn{width:46px;font-size:22px;padding:4px}
+#gpsosm{position:fixed;left:10px;bottom:8px;font-size:11px;opacity:.7}
