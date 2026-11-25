@@ -179,6 +179,12 @@ npm run assets
 - **Malhas do carro:** as peças estáticas são fundidas por material, gerando poucas chamadas de desenho. Prédios e árvores da cidade usam `InstancedMesh`.
 - **Carregamento sob demanda:** o mapa da cidade só é baixado quando escolhido. Ao trocar de mapa, o anterior é descartado (geometrias, materiais, texturas) e seus dados saem do cache. No modo `file://`, o script injetado e o registro em `window` são apagados depois do uso.
 - **Efeitos:** fumaça e marcas de pneu usam pools e buffers circulares fixos.
+- **Renderização em passadas:** o mapa de sombra é desenhado numa passada 0 (câmera-sonda com todas as camadas), depois o cenário e, por último, o carro (camada `VEHICLE`). Isso evita que a *transmission* das lentes redesenhe a cidade a cada quadro. As camadas estão em `RENDER_LAYERS` (`src/utils/Constants.js`).
+- **Cidade em regiões de 400 m** (`city/ChunkGrid.js`): o que fica além da neblina total não é desenhado, e no LOD distante somem troncos e faixas. Só as instâncias num raio de 100 m do jogador entram no mapa de sombra (`city/ShadowCasters.js`).
+- **Opções gráficas** (Menu → Opções): predefinições Baixa/Média/Alta em `GRAPHICS_PRESETS` (`src/utils/Constants.js`), mais ajustes de sombras, resolução e distância.
+- **Diagnóstico:** `F3` (ou Opções → Painel de desempenho) mostra FPS, tempos de CPU/GPU, gargalo, draw calls, triângulos e memória.
+- **Benchmark reproduzível:** abra `index.html?bench=salto`, `?bench=salto&noite=1` ou `?bench=circuito`.
+- **Relatórios:** detalhes e números em [docs/desempenho](docs/desempenho/01-auditoria.md).
 
 ## Créditos
 
