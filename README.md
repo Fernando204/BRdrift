@@ -70,7 +70,7 @@ npm run dev
 
 Back-end em `server/` (Java 21, Spring Boot 3, Maven). Ele guarda contas e progresso no **MongoDB**, atende a API REST, o WebSocket do multiplayer e também serve o jogo (`index.html`, `dist/`, `assets/`), assim cookie e WebSocket ficam na mesma origem.
 
-É preciso um MongoDB rodando. Por padrão o servidor usa `mongodb://localhost:27017/cargame`; para outro endereço, defina a variável `CARGAME_MONGODB_URI`. Depois:
+É preciso um MongoDB rodando. Por padrão o servidor usa `mongodb://localhost:27017/cargame`; para outro endereço, defina a variável `CARGAME_MONGODB_URI`. O banco usado é sempre `cargame` (ou o de `CARGAME_MONGODB_DATABASE`), mesmo que a URL termine com outro nome, para o jogo nunca gravar no banco de outro projeto do mesmo cluster. O nome do banco aparece no log ao iniciar. Depois:
 
 ```powershell
 cd server; mvn spring-boot:run

@@ -23,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Fluxos principais da API: conta, sessão por cookie, carro inicial, loja, oficina e drift. */
 // usa o MongoDB local (mongodb://localhost:27017), num banco separado só para os testes
-@SpringBootTest(properties = "spring.data.mongodb.uri=mongodb://localhost:27017/cargame_test")
+@SpringBootTest(properties = {"spring.data.mongodb.uri=mongodb://localhost:27017/cargame_test",
+        "spring.data.mongodb.database=cargame_test"})
 @AutoConfigureMockMvc
 class GameApiTest {
     @Autowired MockMvc mvc;
