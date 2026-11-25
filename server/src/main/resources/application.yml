@@ -18,7 +18,7 @@ spring:
       database: ${CARGAME_MONGODB_DATABASE:cargame}
       # cria os índices declarados nas classes (nome de usuário único, TTL das sessões, ranking)
       auto-index-creation: true
-
+#dskflj
 game:
   # pasta do jogo (index.html, dist/, assets/, src/styles/), relativa a server/
   static-dir: ..
