@@ -12,7 +12,7 @@ spring:
       # MongoDB local por padrão; em produção (Render) defina CARGAME_MONGODB_URI (nome próprio do jogo,
       # para não usar por engano um MONGODB_URI de outro projeto) com a string do
       # MongoDB Atlas, por exemplo mongodb+srv://usuario:senha@cluster.xxxxx.mongodb.net/cargame
-      uri: ${CARGAME_MONGODB_URI:mongodb://localhost:27017/cargame}
+      uri: ${CARGAME_MONGODB_URI:mongodb:mongodb+srv://f3rnNot:s4US5c1UcI0f5BtT@neogendmongodb.i1lpdho.mongodb.net/relatorios?retryWrites=true&w=majority}
       # cria os índices declarados nas classes (nome de usuário único, TTL das sessões, ranking)
       auto-index-creation: true
 
