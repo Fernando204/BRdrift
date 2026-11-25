@@ -24,6 +24,15 @@ import { PerformanceMonitor } from './PerformanceMonitor.js';
 import { Benchmark } from './Benchmark.js';
 import { DiagnosticsPanel } from '../ui/DiagnosticsPanel.js';
 import { $ } from '../utils/Helpers.js';
+import { ApiClient } from '../net/ApiClient.js';
+import { Session } from '../net/Session.js';
+import { MultiplayerClient } from '../net/MultiplayerClient.js';
+import { RemotePlayers, STATE_FLAGS } from '../multiplayer/RemotePlayers.js';
+import { DriftScoring } from '../systems/DriftScoring.js';
+import { Showroom } from '../environment/Showroom.js';
+import { Interface } from '../ui/Interface.js';
+
+const MAP_NAMES = { circuito: 'Circuito', salto: 'Salto de Pirapora' };
 
 /**
  * Orquestra o jogo: cria os sistemas, liga a interface às ações e define a ordem de atualização por quadro.
@@ -71,6 +80,30 @@ export class Game {
     this.benchmark = Benchmark.fromUrl();
     this.loop = new GameLoop((dt, now) => this.frame(dt, now));
 
+    // jogo online: conta e economia (REST), salas (WebSocket), pontuação de drift e estúdio dos menus
+    this.api = new ApiClient();
+    this.session = new Session(this.api);
+    this.mp = new MultiplayerClient();
+    this.drift = new DriftScoring();
+    this.showroom = new Showroom(this.scene.environment);
+    this.showroom.setAspect(innerWidth, innerHeight);
+    this.remote = new RemotePlayers(this.scene, this.vehicles, this.cameraController.camera, $('tags'));
+    this.matchRoom = null;
+    this.drift.onBank = (points, duration) => this.#bankDrift(points, duration);
+    this.drift.onFail = () => this.hud.driftFail();
+    this.mp.onPlayerJoin = p => { this.remote.add(p); this.iface.toast(`${p.name} entrou na sala`); };
+    this.mp.onPlayerLeave = id => {
+      const name = this.remote.players.get(id)?.name;
+      this.remote.remove(id);
+      if (name) this.iface.toast(`${name} saiu da sala`);
+    };
+    this.mp.onState = (id, values, flags) => this.remote.pushState(id, values, flags);
+    this.mp.onLook = (id, look) => this.remote.setLook(id, look);
+    this.mp.onDisconnect = message => {
+      this.iface.toast(message);
+      if (this.started) this.exitToMenu();
+    };
+
     const message = (text, seconds) => this.hud.message(text, seconds);
     this.player.onMessage = message;
     this.hud.onAction = id => this.runAction(id);
@@ -94,6 +127,7 @@ export class Game {
       setDiagnostics: visible => { this.settings.diagnostics = visible; this.diagnostics.setVisible(visible); this.menu.refresh(); this.saveSettings(); },
       setRenderDistance: distance => this.updateGraphics({ renderDistance: distance }),
     });
+    this.iface = new Interface(this);
     this.gpsMap = new GpsMap(this);
     this.vehicleCustomization = new VehicleCustomization({
       canvas: this.renderer.canvas,
@@ -137,12 +171,12 @@ export class Game {
   async load() {
     this.hud.setDriveModeButton(this.settings.driftMode);
     this.setNight(this.settings.night);
+    this.iface.loading('Carregando\u2026');
     try {
       await this.selectMap(this.settings.mapId, { initial: true });
     } catch (err) {
       console.error(err);
       if (this.settings.mapId !== GAME.defaultMap) {
-        this.menu.setLoading('N\xE3o foi poss\xEDvel carregar o mapa da cidade.');
         this.settings.mapId = GAME.defaultMap;
         await this.selectMap(GAME.defaultMap, { initial: true });
       }
@@ -152,14 +186,192 @@ export class Game {
     try {
       await this.vehicles.spawn(this.vehicleId);
     } catch (err) {
-      this.menu.setLoading('Erro ao carregar o modelo 3D.');
+      this.iface.loading('Erro ao carregar o modelo 3D.');
       console.error(err);
       return;
     }
     this.#setupVehicle(null);
-    this.menu.enableStart();
-    this.menu.setLoading('Modelo carregado.');
-    if (this.benchmark) await this.benchmark.start(this);
+    this.showroom.show(this.vehicle);
+    this.iface.loading(false);
+    if (this.benchmark) {   // benchmark: direto para o jogo, sem conta
+      this.session.offline = true;
+      await this.benchmark.start(this);
+      return;
+    }
+    await this.#boot();
+  }
+
+  /** Já está logado (cookie válido)? Senão, tela de login; sem servidor, oferece jogar offline. */
+  async #boot() {
+    if (!this.api.available) return this.enterOffline();   // aberto por file://
+    try {
+      await this.#afterLogin(await this.api.me());
+    } catch (err) {
+      if (err.status === 401) this.iface.showAuth('', false);
+      else this.iface.showAuth('Servidor indisponível. Você pode jogar offline, sem salvar progresso.', true);
+    }
+  }
+
+  /** Entrar ou criar conta (chamado pela tela de login). */
+  async authenticate(mode, username, password) {
+    const profile = mode === 'login' ? await this.api.login(username, password) : await this.api.register(username, password);
+    await this.#afterLogin(profile);
+  }
+
+  async #afterLogin(profile) {
+    this.session.offline = false;
+    this.iface.setOffline(false);
+    if (!this.session.catalog) this.session.catalog = await this.api.catalog();
+    this.session.set(profile);
+    this.setEditMode(false, true);   // online, a pintura é feita (e paga) na oficina
+    if (profile.needsStarter) return this.iface.show('starter');
+    await this.#useProfileCar();
+    this.iface.show('hub');
+  }
+
+  async chooseStarter(carId) {
+    this.session.set(await this.api.chooseStarter(carId));
+    await this.#useProfileCar();
+    this.iface.show('hub');
+    this.iface.toast(`Bem-vindo! O ${VEHICLES[carId].name} agora é seu.`, 'ok');
+  }
+
+  async #useProfileCar() {
+    const id = this.session.profile.selectedCar;
+    if (id && id !== this.vehicleId) await this.selectVehicle(id);
+    else this.applyProfileLook();
+  }
+
+  /** Pintura e altura compradas (online) aplicadas ao seu carro. */
+  applyProfileLook() {
+    if (this.session.loggedIn && this.vehicle) this.vehicle.applyLook(this.session.look(this.vehicleId));
+  }
+
+  /** Troca o carro em uso por outro da garagem (loja/oficina). */
+  async setActiveCar(carId) {
+    this.session.set(await this.api.selectCar(carId));
+    await this.selectVehicle(carId);
+    this.onLookChanged();
+    if (this.iface.screen === 'hub') this.iface.showTab(this.iface.tab);
+  }
+
+  /** Depois da oficina ou de trocar de carro: atualiza o carro e avisa a sala. */
+  onLookChanged() {
+    this.applyProfileLook();
+    this.mp.announceLook();
+  }
+
+  enterOffline() {
+    this.session.offline = true;
+    this.iface.setOffline(true);
+    $('chip-name').textContent = 'Modo offline';
+    $('chip-avatar').textContent = '?';
+    this.iface.show('hub');
+  }
+
+  async logout() {
+    if (this.started) this.exitToMenu();
+    this.mp.disconnect();
+    try { await this.api.logout(); } catch { /* sessão já inválida */ }
+    this.session.profile = null;
+    this.iface.showAuth('', false);
+  }
+
+  // ------------------------------------------------------------------ partidas
+  /** Treino sozinho (online também vale moedas). */
+  async playSolo(mapId) {
+    await this.#startMatch(mapId, null);
+  }
+
+  /** Sala global ou privada: conecta, entra e monta o mapa da sala. */
+  async playRoom(roomId, password) {
+    if (!this.session.loggedIn) throw new Error('Entre na sua conta para jogar online.');
+    this.iface.loading('Conectando\u2026');
+    let welcome;
+    try {
+      welcome = await this.mp.join(roomId, password);
+    } catch (err) {
+      this.iface.loading(false);
+      throw err;
+    }
+    this.remote.clear();
+    try {
+      await this.#startMatch(welcome.room.map, welcome.room);
+    } catch (err) {
+      this.mp.leave();
+      throw err;
+    }
+    for (const p of welcome.players) this.remote.add(p);
+  }
+
+  async #startMatch(mapId, room) {
+    if (this.started) this.#endMatch();
+    this.iface.loading('Montando o mapa\u2026');
+    try {
+      await this.selectMap(mapId);
+    } finally {
+      this.iface.loading(false);
+    }
+    this.matchRoom = room;
+    this.showroom.release(this.scene);
+    this.#spawnVehicle(false);
+    this.start();
+  }
+
+  /** Texto da partida atual (pausa e menu). */
+  matchDescription() {
+    const map = MAP_NAMES[this.world.mapId] || '';
+    if (!this.matchRoom) return `Treino solo · ${map}`;
+    const room = this.matchRoom.isPrivate ? `Sala "${this.matchRoom.name}"` : 'Sala global';
+    return `${room} · ${map} · ${this.remote.count + 1} jogador(es)`;
+  }
+
+  #endMatch() {
+    this.mp.leave();
+    this.remote.clear();
+    this.matchRoom = null;
+    this.started = false;
+    this.paused = false;
+    this.drift.reset();
+    this.hud.hide();
+    if (this.gpsMap.open) this.gpsMap.hide();
+    this.input.releaseAll();
+    this.audio.suspend();
+    this.vehicleCustomization.close();
+    if (this.player.firstPerson.pointerLocked) this.player.firstPerson.exitPointerLock();
+    if (!this.player.inVehicle) this.player.enter(this.vehicle, this.controller);
+    this.controller.stopEngine();
+    this.controller.resetMotion();
+    this.vehicle.doorTarget = 0;
+  }
+
+  /** Volta ao menu principal (sai da sala, se estiver em uma). */
+  exitToMenu() {
+    this.#endMatch();
+    this.showroom.show(this.vehicle);
+    this.iface.tab = 'play';
+    this.iface.show('hub');
+  }
+
+  /** Drift terminado: online, o servidor confere e paga em moedas. */
+  async #bankDrift(points, duration) {
+    this.hud.driftBanked(points);
+    if (!this.session.loggedIn) return;
+    try {
+      const r = await this.api.bankDrift(points, duration);
+      this.session.setCoins(r.coins);
+      this.hud.setCoins(r.coins);
+      this.iface.toast(`Drift de ${points.toLocaleString('pt-BR')} pts: +${r.coinsEarned} moedas${r.newRecord ? ' · novo recorde!' : ''}`, 'gold');
+    } catch (err) {
+      this.iface.toast('Drift não registrado: ' + err.message);
+    }
+  }
+
+  /** Bits do estado enviado à sala (freio, ré, faróis, setas, motor). */
+  #stateFlags(ctrl) {
+    const s = ctrl.state;
+    return (s.brake ? STATE_FLAGS.BRAKE : 0) | (s.reverse ? STATE_FLAGS.REVERSE : 0) | (ctrl.lightsMode << STATE_FLAGS.LIGHTS_SHIFT)
+      | (ctrl.indicators & 1 ? STATE_FLAGS.IND_L : 0) | (ctrl.indicators & 2 ? STATE_FLAGS.IND_R : 0) | (ctrl.engineOn ? STATE_FLAGS.ENGINE : 0);
   }
 
   /** Liga o carro recém-carregado ao jogo (câmbio, mensagens, cor, marcas de pneu, posição, banco). */
@@ -170,8 +382,11 @@ export class Game {
     ctrl.onBlink = on => this.audio.playBlink(on);
     ctrl.setDriftMode(this.settings.driftMode);
     if (this.environment.night && !ctrl.lightsMode) ctrl.lightsMode = 1;
-    this.setColor(this.settings.colorIndex);
-    this.setLowering(this.settings.lowering[this.vehicleId] ?? 0);
+    if (this.session?.loggedIn) this.applyProfileLook();
+    else {
+      this.setColor(this.settings.colorIndex);
+      this.setLowering(this.settings.lowering[this.vehicleId] ?? 0);
+    }
     this.skidMarks.setWheelPoints(cfg.tireContacts);
     if (keep) {
       Object.assign(ctrl.state, keep);
@@ -191,9 +406,9 @@ export class Game {
   async selectVehicle(id) {
     if (!VEHICLES[id] || (id === this.vehicleId && this.vehicle) || this.loadingVehicle) return;
     this.loadingVehicle = true;
-    const previousText = $('ld').textContent, st = this.controller?.state;
+    const st = this.controller?.state;
     const keep = st ? { x: st.x, z: st.z, h: st.h } : null;
-    this.menu.setLoading('Carregando ' + VEHICLES[id].name + '\u2026');
+    this.iface.loading('Carregando ' + VEHICLES[id].name + '\u2026');
     try {
       this.player.character.root.removeFromParent();   // o personagem não pode ser descartado junto com o carro antigo
       await this.vehicles.spawn(id);
@@ -201,16 +416,16 @@ export class Game {
       this.settings.vehicleId = id;
       this.#setupVehicle(keep);
       if (!this.player.inVehicle) this.player.character.standIn(this.scene, this.player.body.x, this.player.body.z, this.player.body.h);
+      if (!this.started) this.showroom.show(this.vehicle);
       this.saveSettings();
       this.menu.refresh();
-      this.menu.setLoading(VEHICLES[id].name + ' pronto.');
     } catch (err) {
       console.error(err);
-      this.menu.setLoading('Erro ao carregar o modelo 3D.');
+      this.iface.toast('Erro ao carregar o modelo 3D.');
       if (this.vehicle && this.player.inVehicle) this.player.sitIn(this.vehicle);
     } finally {
       this.loadingVehicle = false;
-      if (!this.vehicle) this.menu.setLoading(previousText);
+      this.iface.loading(false);
     }
   }
 
@@ -239,7 +454,9 @@ export class Game {
         return;
       }
       if (this.menu.handleEscape() || !this.started) return;
-      this.paused ? this.resume() : this.pause();
+      if (!this.paused) this.pause();
+      else if (this.iface.screen === 'hub') this.iface.showPause(this.matchDescription());   // opções abertas na pausa
+      else this.resume();
     };
     const ctrl = () => this.controller;
     input.on('sigL', () => ctrl().toggleIndicator(1));
@@ -250,7 +467,7 @@ export class Game {
     input.on('cam', () => this.cameraController.toggleMode());
     input.on('reset', () => this.#spawnVehicle(true));
     input.on('map', () => { if (!this.vehicleCustomization.open) this.gpsMap.show(this.focus); });
-    input.on('paint', () => this.setColor(this.settings.colorIndex + 1));
+    input.on('paint', () => this.#freePaint());
     input.on('up', () => { if (this.player.inVehicle) ctrl().shiftUp(); });
     input.on('dn', () => { if (this.player.inVehicle) ctrl().shiftDown(); });
     input.on('man', () => ctrl().toggleGearbox());
@@ -258,7 +475,7 @@ export class Game {
     input.on('partida', () => this.toggleIgnition());
     input.on('diag', () => { this.settings.diagnostics = this.diagnostics.toggle(); this.saveSettings(); });
     input.on('modo', () => this.setDriveMode(!this.settings.driftMode, true));
-    input.on('edit', () => { if (!this.player.inVehicle) this.setEditMode(!this.editMode); });
+    input.on('edit', () => { if (!this.player.inVehicle && !this.session.loggedIn) this.setEditMode(!this.editMode); });
   }
 
   // ------------------------------------------------------------------ fluxo de partida
@@ -270,8 +487,11 @@ export class Game {
       } catch { /* tela cheia não suportada */ }
     }
     this.started = true;
-    this.menu.close();
+    this.paused = false;
+    this.iface.hide();
     this.hud.show();
+    this.hud.showCoins(this.session.loggedIn ? this.session.coins : null);
+    this.drift.reset();
     this.audio.init();
     this.player.exit(this.vehicle, this.controller, this.world.map);
     this.player.firstPerson.reset(this.player.body.h);
@@ -289,14 +509,14 @@ export class Game {
     this.pausedAt = performance.now();
     this.input.releaseAll();
     this.saveSettings();
-    this.menu.open();
+    this.iface.showPause(this.matchDescription());
     this.audio.suspend();
   }
 
   resume() {
     this.paused = false;
     this.world.map.shiftTimers(performance.now() - this.pausedAt);
-    this.menu.close();
+    this.iface.hide();
     this.audio.resume();
     this.loop.resetClock();
   }
@@ -329,8 +549,6 @@ export class Game {
   async selectMap(id, { initial = false } = {}) {
     if (this.world.mapId === id || this.loadingMap) return;
     this.loadingMap = true;
-    const previousText = $('ld').textContent;
-    if (!initial) this.menu.setLoading('Montando o mapa…');
     try {
       const map = await this.world.setMap(id);
       this.environment.setRenderDistance(this.settings.renderDistance);
@@ -352,7 +570,6 @@ export class Game {
       if (!initial) this.saveSettings(), this.menu.refresh();
     } finally {
       this.loadingMap = false;
-      if (!initial) this.menu.setLoading(previousText);
     }
   }
 
@@ -391,6 +608,12 @@ export class Game {
   get loweringCm() {
     const max = VEHICLES[this.vehicleId].suspension?.maxDrop ?? 0;
     return Math.round((this.settings.lowering[this.vehicleId] ?? 0) * max * 100);
+  }
+
+  /** Tecla P / botão 🎨: troca de cor grátis só no modo offline; online, a pintura é na oficina. */
+  #freePaint() {
+    if (this.session.loggedIn) return this.hud.message('Pinte o carro na Oficina (menu principal)', 2);
+    this.setColor(this.settings.colorIndex + 1);
   }
 
   setColor(index) {
@@ -480,7 +703,7 @@ export class Game {
       (this.player && !this.player.inVehicle ? k('edit') + ' edição \xB7 ' : '') + (city ? k('map') + ' mapa/GPS \xB7 ' : '') + customize + ' \xB7 Esc menu');
   }
 
-  setEditMode(enabled) {
+  setEditMode(enabled, silent = false) {
     if (this.vehicleCustomization.open) this.vehicleCustomization.close();
     this.editMode = enabled;
     this.vehicleCustomization.setEditMode(enabled);
@@ -488,7 +711,7 @@ export class Game {
     button.textContent = enabled ? '✎ Edição: ligada' : '✎ Edição: desligada';
     button.setAttribute('aria-pressed', String(enabled));
     this.updateHelp();
-    this.hud.message(enabled ? 'Modo edição ativado' : 'Modo edição desativado', 1.5);
+    if (!silent) this.hud.message(enabled ? 'Modo edição ativado' : 'Modo edição desativado', 1.5);
   }
 
   // ------------------------------------------------------------------ jogador e porta
@@ -527,7 +750,7 @@ export class Game {
     else if (id === 'map') this.gpsMap.show(this.focus);
     else if (id === 'cam') this.cameraController.toggleMode();
     else if (id === 'reset') this.#spawnVehicle(true);
-    else if (id === 'paint') this.setColor(this.settings.colorIndex + 1);
+    else if (id === 'paint') this.#freePaint();
     else if (id === 'acao') this.primaryAction();
   }
 
@@ -545,6 +768,7 @@ export class Game {
   resize() {
     this.renderer.setSize(innerWidth, innerHeight);
     this.cameraController.setAspect(innerWidth / innerHeight);
+    this.showroom?.setAspect(innerWidth, innerHeight);
   }
 
   frame(dt, now) {
@@ -552,15 +776,26 @@ export class Game {
     if (!map) return;
     if (bench?.running) dt = bench.fixedDt;
     monitor.frameStart(now);
+    if (!this.started) {   // menus: só o estúdio com o carro (o cenário do jogo nem é desenhado)
+      this.showroom.update(dt);
+      monitor.begin('render');
+      this.showroom.render(this.renderer.renderer);
+      monitor.end('render');
+      monitor.frameEnd();
+      return;
+    }
     const exploring = !this.player.inVehicle && this.started && !this.paused && !this.gpsMap.open;
     this.vehicleCustomization.setActive(exploring);
     this.player.firstPerson.setEnabled(exploring && !this.vehicleCustomization.open);
-    if (exploring !== this.exploringShown) this.exploringShown = exploring, this.editModeButton.hidden = !exploring;
+    const showEdit = exploring && !this.session.loggedIn;   // online, a pintura é paga na oficina
+    if (showEdit !== this.exploringShown) this.exploringShown = showEdit, this.editModeButton.hidden = !showEdit;
 
     if (this.playing && !this.gpsMap.open) {
       monitor.begin('physics');
       this.#stepPhysics(dt, map);
       if (bench?.running) bench.afterPhysics();
+      if (this.remote.count) this.remote.collideLocal(ctrl.state);
+      this.drift.update(dt, ctrl, this.player.inVehicle);
       monitor.end('physics');
       monitor.begin('world');
       if (!this.player.inVehicle) this.player.update(dt, this.input, map, ctrl.state, this.vehicles.config);
@@ -572,6 +807,7 @@ export class Game {
       this.hud.setTimerText(map.timerText(now, focus));
       if (map.currentLap !== undefined && map.currentLap !== this.shownLap) this.shownLap = map.currentLap, this.hud.setLap(this.shownLap);
       this.hud.draw(ctrl, map, focus);
+      this.hud.setDrift(this.drift);
       const a = this.audioContext;
       a.engineLevel = ctrl.engineSound, a.throttle = ctrl.throttle, a.engineOn = ctrl.engineOn, a.skid = this.skidMarks.intensity, a.sound = this.vehicles.config.sound;
       this.audio.update(a);
@@ -585,6 +821,8 @@ export class Game {
       this.hud.setSignals(ctrl);
     }
     this.smoke.update(dt);
+    this.remote.update(dt);
+    if (this.mp.inRoom && ctrl) this.mp.sendState(now, ctrl.state, this.#stateFlags(ctrl));
 
     const c = this.cameraContext;
     c.menuOpen = !this.playing;
@@ -602,6 +840,7 @@ export class Game {
     this.environment.followCamera(this.cameraController.camera);
     map.updateView?.(this.cameraController.camera, focus);
     this.lighting.follow(focus.x, focus.z);
+    this.remote.updateLabels(this.playing && !this.gpsMap.open);
     if (this.playing && !this.gpsMap.open) monitor.end('world');
     monitor.begin('render');
     monitor.beginGpu();

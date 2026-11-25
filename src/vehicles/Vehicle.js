@@ -1,6 +1,5 @@
 import { Group, Mesh, Vector3, Quaternion, Color, SpotLight, DoubleSide, Float32BufferAttribute, BufferAttribute } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { disposeObject3D } from '../utils/Helpers.js';
 import { RENDER_LAYERS } from '../utils/Constants.js';
 
 const KEEP_ATTRIBUTES = ['position', 'normal', 'uv'];
@@ -13,10 +12,25 @@ const _center = new Vector3();
  * fundido por material para reduzir chamadas de desenho), luzes e animações.
  */
 export class Vehicle {
-  constructor(gltf, config) {
+  /**
+   * @param gltf   modelo carregado (não é alterado: cada carro trabalha numa cópia própria)
+   * @param remote true para carros de outros jogadores (sem holofotes, que forçariam recompilar shaders)
+   */
+  constructor(gltf, config, { remote = false } = {}) {
     this.config = config;
+    this.remote = remote;
     this.root = new Group();          // posição/rumo no mundo
-    this.model = gltf.scene;          // inclinação da carroceria (rolagem/arfagem)
+    // cópia da cena: geometrias compartilhadas com o modelo carregado, materiais próprios (luzes e
+    // pintura de um carro não afetam os outros)
+    this.model = gltf.scene.clone(true);   // inclinação da carroceria (rolagem/arfagem)
+    this.ownedGeometries = new Set();
+    const materialCopies = new Map();
+    this.model.traverse(o => {
+      if (!o.isMesh) return;
+      o.material = Array.isArray(o.material)
+        ? o.material.map(m => materialCopies.get(m) || materialCopies.set(m, m.clone()).get(m))
+        : materialCopies.get(o.material) || materialCopies.set(o.material, o.material.clone()).get(o.material);
+    });
     this.root.add(this.model);
 
     this.#setupMovingParts();
@@ -135,11 +149,12 @@ export class Vehicle {
       byMaterial.get(material).push(geo);
       merged.push(mesh);
     });
-    merged.forEach(m => { m.removeFromParent(); m.geometry.dispose(); });
+    merged.forEach(m => m.removeFromParent());   // a geometria original continua no modelo carregado
 
     this.materials = { indicators: indicatorSides };
     for (const [material, geometries] of byMaterial) {
       const mesh = new Mesh(mergeGeometries(geometries, false), material);
+      this.ownedGeometries.add(mesh.geometry);
       geometries.forEach(g => g.dispose());
       mesh.castShadow = mesh.receiveShadow = true;
       scene.add(mesh);
@@ -187,6 +202,25 @@ export class Vehicle {
     for (const material of this.paintMaterials) material.color.set(hex);
   }
 
+  /**
+   * Aparência vinda do servidor: cor de cada peça (peças sem cor salva usam a original) e altura.
+   * @param look { colors: {peça: '#rrggbb'}, lowering: 0..1 }
+   */
+  applyLook(look) {
+    const colors = look?.colors || {};
+    for (const part of this.customizableParts) {
+      const hex = colors[part.objectName] || part.originalColor;
+      for (const m of part.paintMaterials) m.color.set(hex);
+    }
+    this.setRideHeight((look?.lowering || 0) * (this.config.suspension?.maxDrop ?? 0));
+  }
+
+  /** Cor atual de uma peça personalizável (para a oficina). */
+  partColor(objectName) {
+    const part = this.customizableParts.find(p => p.objectName === objectName);
+    return part ? '#' + part.paintMaterials[0].color.getHexString() : null;
+  }
+
   /** Posição, rodas, volante, porta e luzes a partir do estado do controlador. */
   update(dt, ctrl) {
     const s = ctrl.state;
@@ -214,6 +248,7 @@ export class Vehicle {
     m.tail.emissiveIntensity = s.brake ? 3 : mode ? 0.7 : 0.15;
     m.head.emissiveIntensity = [0.05, 2.5, 4][mode];
     for (const light of this.headlights) {
+      if (this.remote) { light.visible = false; continue; }   // carros remotos: só a lente acesa
       const side = light.userData.side;
       light.intensity += ([0, 3e3, 7e3][mode] - light.intensity) * Math.min(1, dt * 12);
       // apagado de fato: o Three.js deixa de calcular os 2 holofotes em todos os pixels da cena
@@ -229,8 +264,15 @@ export class Vehicle {
     this.root.updateMatrixWorld(true);
   }
 
+  /** Libera só o que é deste carro (geometrias fundidas e materiais copiados); o modelo carregado fica. */
   dispose() {
-    disposeObject3D(this.root);
+    const materials = new Set();
+    this.root.traverse(o => {
+      if (o.material) for (const m of [].concat(o.material)) materials.add(m);
+    });
+    for (const m of materials) m.dispose();
+    for (const g of this.ownedGeometries) g.dispose();
+    this.root.removeFromParent();
   }
 }
 

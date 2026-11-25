@@ -4,8 +4,8 @@ import { ACTIONS } from '../systems/InputSystem.js';
 const SHADOW_LEVELS = ['off', 'low', 'medium', 'high'];
 
 /**
- * Menu inicial/pausa: telas principal, opções e controles (com troca de teclas).
- * Não conhece a lógica do jogo: chama as funções de `actions` recebidas do Game.
+ * Painéis de Opções e Controles (com troca de teclas) do menu principal.
+ * A navegação entre telas fica em Interface.js; aqui só se liga cada opção à ação do Game.
  */
 export class Menu {
   /**
@@ -14,30 +14,12 @@ export class Menu {
   constructor(game, actions) {
     this.game = game;
     this.actions = actions;
-    this.screen = 'main';
     this.capture = null;        // { action, slot } enquanto espera a nova tecla
 
-    document.querySelectorAll('[data-scr]').forEach(b => (b.onclick = () => this.showScreen(b.dataset.scr)));
-    $('go').onclick = () => (game.started ? actions.resume() : actions.start());
-    $('rs').onclick = () => actions.restart();
     $('pbtn').onpointerdown = e => { e.preventDefault(); if (game.started && !game.paused) actions.pause(); };
     $('o-gb').onclick = this.#segment(v => actions.setGearbox(v === 1));
     $('o-dm').onclick = this.#segment(v => actions.setDriveMode(v === 1));
     $('o-nt').onclick = this.#segment(v => actions.setNight(v === 1));
-    $('o-map').onclick = this.#segment(v => actions.selectMap(v === 1 ? 'salto' : 'circuito'));
-    // um botão por carro registrado em vehicles.config.js
-    const cars = $('o-car');
-    game.vehicles.available.forEach(({ id, name }, i) => {
-      const b = document.createElement('button');
-      b.dataset.v = i;
-      b.dataset.id = id;
-      b.textContent = name;
-      cars.appendChild(b);
-    });
-    cars.onclick = e => {
-      const b = e.target.closest('button');
-      if (b) actions.selectVehicle(b.dataset.id);
-    };
     $('o-quality').onclick = this.#segment(v => actions.setGraphicsQuality(['low', 'medium', 'high'][v]));
     $('o-diag').onclick = this.#segment(v => actions.setDiagnostics(v === 1));
     $('o-shadow').onclick = this.#segment(v => actions.setShadowQuality(SHADOW_LEVELS[v]));
@@ -67,52 +49,12 @@ export class Menu {
     };
   }
 
-  get isOpen() {
-    return $('intro').style.display !== 'none';
-  }
-
-  open() {
-    this.showScreen('main');
-    $('go').textContent = 'Continuar';
-    $('rs').style.display = 'block';
-    $('intro').style.display = 'flex';
-  }
-
-  close() {
-    $('intro').style.display = 'none';
-  }
-
-  setLoading(text) {
-    $('ld').textContent = text;
-  }
-
-  enableStart() {
-    $('go').disabled = false;
-    $('go').textContent = 'Jogar';
-  }
-
-  showScreen(name) {
-    this.screen = name;
-    document.querySelectorAll('.scr').forEach(s => (s.hidden = s.id !== 'scr-' + name));
-    if (name === 'ctl') this.renderControls();
-    if (name === 'opt') this.refresh();
-  }
-
-  /**
-   * Esc: cancela a troca de tecla, volta à tela principal ou alterna pausa.
-   * Retorna true se tratou a tecla.
-   */
+  /** Esc durante a troca de tecla cancela a troca. Retorna true se tratou a tecla. */
   handleEscape() {
-    if (this.capture) {
-      this.capture = null;
-      this.renderControls();
-      return true;
-    }
-    if (this.screen !== 'main') {
-      this.showScreen('main');
-      return true;
-    }
-    return false;
+    if (!this.capture) return false;
+    this.capture = null;
+    this.renderControls();
+    return true;
   }
 
   /** Enquanto espera uma tecla nova, consome qualquer tecla. */
@@ -147,8 +89,6 @@ export class Menu {
   /** Atualiza o estado visual das opções. */
   refresh() {
     const s = this.game.settings, toggle = (id, on) => document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('on', on(+b.dataset.v)));
-    toggle('o-map', v => (v === 1) === (s.mapId === 'salto'));
-    $('osm').hidden = s.mapId !== 'salto';
     toggle('o-dm', v => (v === 1) === s.driftMode);
     toggle('o-gb', v => (v === 1) === s.manualGearbox);
     toggle('o-nt', v => (v === 1) === s.night);
@@ -159,7 +99,6 @@ export class Menu {
     $('o-res-value').value = Math.round(s.resolutionScale * 100) + '%';
     $('o-distance').value = s.renderDistance;
     $('o-distance-value').value = s.renderDistance + ' m';
-    document.querySelectorAll('#o-car button').forEach(b => b.classList.toggle('on', b.dataset.id === this.game.vehicleId));
     const colors = this.game.vehicleColors, swatches = $('o-col');
     if (swatches.dataset.vehicle !== this.game.vehicleId) {   // paleta do carro escolhido
       swatches.replaceChildren();

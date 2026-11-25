@@ -22,6 +22,51 @@ export class HUD {
     this.root.style.display = 'block';
   }
 
+  hide() {
+    this.root.style.display = 'none';
+    $('drift').hidden = true;
+    $('hud-coins').hidden = true;
+  }
+
+  /** Medidor de drift: pontos, combo e barra até o próximo combo; escreve no DOM só quando muda. */
+  setDrift(drift) {
+    if (this.driftHold > 0) return;   // mostrando o resultado (pago ou perdido)
+    const el = this.driftEl ??= { root: $('drift'), points: $('drift-points'), combo: $('drift-combo'), bar: $('drift-bar') };
+    if (!drift.active) {
+      if (!el.root.hidden) el.root.hidden = true;
+      return;
+    }
+    if (el.root.hidden) el.root.hidden = false, el.root.classList.remove('fail', 'banked');
+    const pts = Math.round(drift.points);
+    if (pts !== this.driftShown) el.points.textContent = (this.driftShown = pts).toLocaleString('pt-BR');
+    const combo = 'x' + drift.combo.toFixed(1).replace('.0', '');
+    if (combo !== this.comboShown) el.combo.textContent = this.comboShown = combo;
+    el.bar.style.width = Math.round(drift.comboProgress * 100) + '%';
+  }
+
+  #holdDrift(cls, text) {
+    const root = $('drift');
+    root.hidden = false;
+    root.classList.remove('fail', 'banked');
+    root.classList.add(cls);
+    if (text != null) $('drift-points').textContent = text;
+    this.driftShown = -1;
+    this.driftHold = 1.4;
+  }
+
+  driftBanked(points) { this.#holdDrift('banked', points.toLocaleString('pt-BR')); }
+  driftFail() { this.#holdDrift('fail'); }
+
+  /** Moedas no canto (null esconde: modo offline). */
+  showCoins(coins) {
+    $('hud-coins').hidden = coins == null;
+    if (coins != null) this.setCoins(coins);
+  }
+
+  setCoins(coins) {
+    $('hud-coins').textContent = coins.toLocaleString('pt-BR');
+  }
+
   message(text, seconds = 3) {
     const el = $('msg');
     el.textContent = text;
@@ -32,6 +77,7 @@ export class HUD {
   /** Conta o tempo das mensagens (só enquanto o jogo roda, como antes). */
   tick(dt) {
     if (this.messageTimer > 0 && (this.messageTimer -= dt) <= 0) $('msg').style.opacity = 0;
+    if (this.driftHold > 0 && (this.driftHold -= dt) <= 0) $('drift').hidden = true;
   }
 
   /**

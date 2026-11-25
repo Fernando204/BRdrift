@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "jogo-chevette", "runtimeExecutable": "python", "runtimeArgs": ["-m", "http.server", "8765"], "port": 8765 }
+    { "name": "jogo-chevette", "runtimeExecutable": "python", "runtimeArgs": ["-m", "http.server", "8765"], "port": 8765 },
+    { "name": "servidor-jogo", "runtimeExecutable": "cmd", "runtimeArgs": ["/c", "cd server && mvn -q -B spring-boot:run"], "port": 8080 }
   ]
 }

@@ -1,0 +1,43 @@
+{
+  "cars": [
+    {
+      "id": "chevette",
+      "name": "Chevette SL",
+      "price": 1000,
+      "defaultColor": "#e7e7e3",
+      "maxDropCm": 9,
+      "parts": [
+        { "id": "Capo", "name": "Capô" },
+        { "id": "Cabine", "name": "Teto e cabine" },
+        { "id": "Carroceria", "name": "Carroceria" },
+        { "id": "Porta_Esquerda", "name": "Porta do motorista" },
+        { "id": "Porta_Direita", "name": "Porta do passageiro" },
+        { "id": "Paralama_Ponta_Esquerda", "name": "Para-lama dianteiro esquerdo" },
+        { "id": "Paralama_Ponta_Direita", "name": "Para-lama dianteiro direito" },
+        { "id": "Tampa_Porta_Malas", "name": "Tampa do porta-malas" },
+        { "id": "Saia_Dianteira", "name": "Saia dianteira" },
+        { "id": "Para_Choque_Dianteiro", "name": "Para-choque dianteiro", "defaultColor": "#242424" },
+        { "id": "Para_Choque_Traseiro", "name": "Para-choque traseiro", "defaultColor": "#242424" }
+      ]
+    },
+    {
+      "id": "saveiro",
+      "name": "Saveiro Robust",
+      "price": 1000,
+      "defaultColor": "#e9e9e6",
+      "maxDropCm": 17,
+      "parts": [
+        { "id": "Capo", "name": "Capô" },
+        { "id": "Cabine", "name": "Teto e cabine" },
+        { "id": "Carroceria", "name": "Carroceria e caçamba" },
+        { "id": "Porta_Esquerda", "name": "Porta do motorista" },
+        { "id": "Porta_Direita", "name": "Porta do passageiro" },
+        { "id": "Tampa_Cacamba", "name": "Tampa da caçamba" },
+        { "id": "Para_Choque_Dianteiro", "name": "Para-choque dianteiro" },
+        { "id": "Para_Choque_Traseiro", "name": "Para-choque traseiro" },
+        { "id": "Retrovisor_Esquerdo_Carcaca", "name": "Retrovisor esquerdo" },
+        { "id": "Retrovisor_Direito_Carcaca", "name": "Retrovisor direito" }
+      ]
+    }
+  ]
+}
