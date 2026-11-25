@@ -1,5 +1,6 @@
 import { Sprite, SpriteMaterial } from 'three';
 import { createCanvasTexture } from '../textures.js';
+import { RENDER_LAYERS } from '../../utils/Constants.js';
 
 const POOL_SIZE = 90;
 
@@ -19,6 +20,7 @@ export class TireSmoke {
       const s = new Sprite(new SpriteMaterial({ map: this.texture, transparent: true, depthWrite: false, opacity: 0, color: 14540253 }));
       s.visible = false;
       s.userData = { life: 0, alpha: 0, vx: 0, vy: 0, vz: 0 };
+      s.layers.set(RENDER_LAYERS.VEHICLE);   // transparente: ordenado junto com o carro
       scene.add(s);
       this.sprites.push(s);
     }

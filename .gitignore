@@ -1,2 +1,4 @@
 node_modules/
 *.blend1
+.bench/
+bench-baseline.html

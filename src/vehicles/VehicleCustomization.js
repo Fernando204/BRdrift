@@ -17,6 +17,7 @@ export class VehicleCustomization {
     this.onOpenChange = onOpenChange;
     this.onInteract = onInteract;
     this.raycaster = new Raycaster();
+    this.raycaster.layers.enableAll();   // o carro fica numa camada própria de renderização
     this.active = false;
     this.editMode = true;
     this.open = false;

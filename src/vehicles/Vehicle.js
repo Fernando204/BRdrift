@@ -1,6 +1,7 @@
 import { Group, Mesh, Vector3, Quaternion, Color, SpotLight, DoubleSide, Float32BufferAttribute, BufferAttribute } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { disposeObject3D } from '../utils/Helpers.js';
+import { RENDER_LAYERS } from '../utils/Constants.js';
 
 const KEEP_ATTRIBUTES = ['position', 'normal', 'uv'];
 const UP = new Vector3(0, 1, 0);
@@ -22,6 +23,8 @@ export class Vehicle {
     this.#prepareCustomizableParts();
     this.#mergeStaticMeshes();
     this.#setupHeadlights();
+    this.root.traverse(o => o.layers.set(RENDER_LAYERS.VEHICLE));
+    for (const light of this.headlights) light.layers.enable(RENDER_LAYERS.WORLD);
 
     this.doorAngle = 0;
     this.doorTarget = 0;

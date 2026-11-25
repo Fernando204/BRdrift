@@ -1,4 +1,5 @@
 import { DirectionalLight } from 'three';
+import { RENDER_LAYERS } from '../utils/Constants.js';
 
 /** Sol com sombras. A área de sombra acompanha o jogador para manter a nitidez perto dele. */
 export class Lighting {
@@ -11,6 +12,8 @@ export class Lighting {
     Object.assign(this.sun.shadow.camera, { left: -35, right: 35, top: 35, bottom: -35, near: 1, far: 260 });
     this.sun.shadow.bias = -4e-4;
     this.sun.shadow.normalBias = 0.03;
+    this.sun.layers.enable(RENDER_LAYERS.VEHICLE);
+    for (const layer of Object.values(RENDER_LAYERS)) this.sun.shadow.camera.layers.enable(layer);
     scene.add(this.sun, this.sun.target);
   }
 

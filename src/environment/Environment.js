@@ -16,6 +16,7 @@ export class Environment {
     this.sunDirection = new Vector3(...SUN_DIRECTION).normalize();
 
     this.sky = createSkyDome(900, this.sunDirection, false);
+    this.sky.renderOrder = 2;          // desenhado depois dos opacos: só os pixels de fundo são pintados
     this.scene.add(this.sky);
 
     // reflexos do ambiente: renderiza um céu pequeno uma única vez e descarta o gerador
@@ -38,6 +39,7 @@ export class Environment {
     this.ground = new Mesh(new PlaneGeometry(2e3, 2e3), new MeshStandardMaterial({ map: this.groundTexture, roughness: 1 }));
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.receiveShadow = true;
+    this.ground.renderOrder = 1;       // depois de ruas e prédios (menos sobreposição de pixels)
     this.scene.add(this.ground);
 
     this.night = false;

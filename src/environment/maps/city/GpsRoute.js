@@ -1,6 +1,7 @@
 import { Group, Mesh, BufferGeometry, Float32BufferAttribute, MeshBasicMaterial, CylinderGeometry, DoubleSide, AdditiveBlending } from 'three';
 import { createCanvasTexture } from '../../textures.js';
 import { formatDistance } from '../../../utils/MathUtils.js';
+import { RENDER_LAYERS } from '../../../utils/Constants.js';
 
 const ROUTE_COLOR = '#b44dff';
 const RECALC_INTERVAL = 0.6;   // s
@@ -41,6 +42,9 @@ export class GpsRoute {
     this.marker = new Group();
     this.marker.add(this.beam, ring);
     this.marker.visible = false;
+    // transparentes: desenhados na passada do carro para a ordem de mistura ficar correta
+    this.line.layers.set(RENDER_LAYERS.VEHICLE);
+    this.marker.traverse(o => o.layers.set(RENDER_LAYERS.VEHICLE));
     parent.add(this.line, this.marker);
   }
 
