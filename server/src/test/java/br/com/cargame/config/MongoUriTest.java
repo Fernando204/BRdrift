@@ -47,6 +47,16 @@ class MongoUriTest {
     }
 
     @Test
+    void noRenderSemAVariavelDaErroCitandoSoOsNomesParecidos() {
+        String msg = MongoUri.missingOnHost(java.util.Map.of("RENDER", "true", "MONGODB_URI", OK));
+        assertTrue(msg.contains("Environment"));
+        assertTrue(msg.contains("MONGODB_URI"));
+        assertFalse(msg.contains("s3nh4"));
+        assertNull(MongoUri.missingOnHost(java.util.Map.of("RENDER", "true", "CARGAME_MONGODB_URI", OK)));
+        assertNull(MongoUri.missingOnHost(java.util.Map.of()));   // na sua máquina: usa o MongoDB local
+    }
+
+    @Test
     void campoDeExemploEEspacoNoMeioDaoErro() {
         assertThrows(IllegalStateException.class,
                 () -> MongoUri.normalize("mongodb+srv://jogo:<password>@cluster0.abcde.mongodb.net/cargame"));

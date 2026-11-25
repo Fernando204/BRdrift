@@ -37,6 +37,21 @@ public final class MongoUri {
         return v;
     }
 
+    /**
+     * Num servidor de hospedagem (o Render define RENDER) não há MongoDB local: sem CARGAME_MONGODB_URI
+     * o jogo não tem onde gravar. Devolve a mensagem de erro, ou null se está tudo certo.
+     * Cita só os NOMES de variáveis parecidas (nunca os valores), para achar a que foi criada com outro nome.
+     */
+    public static String missingOnHost(java.util.Map<String, String> env) {
+        if (env.get(VARIABLE) != null || env.get("RENDER") == null) return null;
+        var similar = env.keySet().stream().filter(k -> k.toUpperCase().contains("MONGO")).sorted().toList();
+        return VARIABLE + " não está definida neste serviço, e aqui não existe MongoDB local. No painel do Render, "
+                + "abra o serviço → Environment → Add Environment Variable, com a chave " + VARIABLE
+                + " e o valor mongodb+srv://usuario:senha@cluster.../cargame; depois salve e faça o deploy de novo."
+                + (similar.isEmpty() ? "" : " Variáveis parecidas encontradas (renomeie para " + VARIABLE + "): "
+                + String.join(", ", similar) + ".");
+    }
+
     private static boolean isQuote(char c) {
         return c == '"' || c == '\'' || c == '`';
     }

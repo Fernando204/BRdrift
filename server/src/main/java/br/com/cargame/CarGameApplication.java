@@ -13,6 +13,12 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class CarGameApplication {
     public static void main(String[] args) {
         // confere CARGAME_MONGODB_URI antes de o Spring ler (valor colado com aspas, espaços etc.)
+        String missing = MongoUri.missingOnHost(System.getenv());
+        if (missing != null) {
+            System.err.println("ERRO DE CONFIGURAÇÃO: " + missing);
+            System.exit(1);
+            return;
+        }
         String uri;
         try {
             uri = MongoUri.normalize(System.getenv(MongoUri.VARIABLE));
