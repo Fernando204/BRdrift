@@ -1,5 +1,5 @@
 import { WebGLRenderer, PCFSoftShadowMap, ACESFilmicToneMapping, PerspectiveCamera } from 'three';
-import { RENDER_LAYERS } from '../utils/Constants.js';
+import { RENDER_LAYERS, GRAPHICS_PRESETS } from '../utils/Constants.js';
 
 /** Configuração do renderizador WebGL e ajuste ao tamanho da janela. */
 export class Renderer {
@@ -52,7 +52,7 @@ export class Renderer {
   }
 
   #applyPixelRatio() {
-    const maxRatio = { low: 0.75, medium: 1.25, high: 2 }[this.quality];
+    const maxRatio = GRAPHICS_PRESETS[this.quality].pixelRatio;
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, maxRatio, this.lowPower ? 1.5 : Infinity) * this.resolutionScale);
   }
 

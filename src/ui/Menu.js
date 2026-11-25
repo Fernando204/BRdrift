@@ -1,6 +1,8 @@
 import { $ } from '../utils/Helpers.js';
 import { ACTIONS } from '../systems/InputSystem.js';
 
+const SHADOW_LEVELS = ['off', 'low', 'medium', 'high'];
+
 /**
  * Menu inicial/pausa: telas principal, opções e controles (com troca de teclas).
  * Não conhece a lógica do jogo: chama as funções de `actions` recebidas do Game.
@@ -25,7 +27,8 @@ export class Menu {
     $('o-map').onclick = this.#segment(v => actions.selectMap(v === 1 ? 'salto' : 'circuito'));
     $('o-quality').onclick = this.#segment(v => actions.setGraphicsQuality(['low', 'medium', 'high'][v]));
     $('o-diag').onclick = this.#segment(v => actions.setDiagnostics(v === 1));
-    $('o-shadow').onclick = this.#segment(v => actions.setShadows(v === 1));
+    $('o-shadow').onclick = this.#segment(v => actions.setShadowQuality(SHADOW_LEVELS[v]));
+    $('o-res').oninput = e => actions.setResolutionScale(+e.target.value / 100);
     $('o-distance').oninput = e => actions.setRenderDistance(+e.target.value);
     $('o-vol').oninput = e => actions.setVolume(e.target.value / 100);
     $('ctlList').onclick = e => {
@@ -130,7 +133,9 @@ export class Menu {
     toggle('o-nt', v => (v === 1) === s.night);
     toggle('o-quality', v => v === ['low', 'medium', 'high'].indexOf(s.graphicsQuality));
     toggle('o-diag', v => (v === 1) === s.diagnostics);
-    toggle('o-shadow', v => (v === 1) === s.shadows);
+    toggle('o-shadow', v => SHADOW_LEVELS[v] === s.shadowQuality);
+    $('o-res').value = Math.round(s.resolutionScale * 100);
+    $('o-res-value').value = Math.round(s.resolutionScale * 100) + '%';
     $('o-distance').value = s.renderDistance;
     $('o-distance-value').value = s.renderDistance + ' m';
     const colors = this.game.vehicleColors, swatches = $('o-col');

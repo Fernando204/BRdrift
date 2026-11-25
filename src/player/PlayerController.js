@@ -55,6 +55,13 @@ export class PlayerController {
     return true;
   }
 
+  /** Número que muda sempre que a lista de ações possíveis mudaria (evita recriar a lista a cada quadro). */
+  actionsKey(vehicle, ctrl) {
+    if (this.inVehicle) return 1 | (ctrl.startTimer > 0 ? 2 : 0) | (ctrl.engineOn ? 4 : 0) | (ctrl.speedMs < 1.2 ? 8 : 0);
+    const p = this.#standPoint(ctrl.state, vehicle.config);
+    return Math.hypot(this.body.x - p.x, this.body.z - p.z) > INTERACT_DISTANCE ? 16 : 32 | (vehicle.doorTarget ? 64 : 0);
+  }
+
   /**
    * Ações possíveis agora: [id, texto, tecla]. Dentro do carro: partida e sair;
    * a pé, perto da porta: abrir, entrar ou fechar.

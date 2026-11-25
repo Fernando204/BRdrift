@@ -356,8 +356,11 @@ export class CityMap {
     g.translate(W / 2, W / 2);
     g.rotate(-Math.PI / 2 - Math.atan2(Math.cos(focus.h), Math.sin(focus.h)));
     g.drawImage(this.miniCanvas, -(focus.x + M + 100) * k * f, -(focus.z + M + 100) * k * f, MINIMAP_SIZE * f, MINIMAP_SIZE * f);
-    const out = [0, 0];
-    this.gps.drawOn(g, (x, z) => (out[0] = (x - focus.x) * s, out[1] = (z - focus.z) * s, out), 4);
+    // projeção reaproveitada entre quadros (sem closure/array novos a cada desenho)
+    const mp = this.miniProjector || (this.miniProjector = { out: [0, 0], x: 0, z: 0, s: 1, fn: null });
+    mp.x = focus.x, mp.z = focus.z, mp.s = s;
+    mp.fn ||= (x, z) => (mp.out[0] = (x - mp.x) * mp.s, mp.out[1] = (z - mp.z) * mp.s, mp.out);
+    this.gps.drawOn(g, mp.fn, 4);
     const dest = this.gps.destination;
     if (dest) {     // destino preso na borda quando está longe
       let dx = (dest.x - focus.x) * s, dz = (dest.z - focus.z) * s;

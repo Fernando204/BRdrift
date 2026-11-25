@@ -34,6 +34,16 @@ export class HUD {
     if (this.messageTimer > 0 && (this.messageTimer -= dt) <= 0) $('msg').style.opacity = 0;
   }
 
+  /**
+   * Botões de ação contextuais. Recebe uma chave numérica do estado e só monta a lista
+   * (arrays e textos) quando a chave muda.
+   */
+  updateActions(key, build) {
+    if (key === this.actionsKey) return;
+    this.actionsKey = key;
+    this.setActions(build());
+  }
+
   setMapMode(map) {
     document.body.classList.toggle('cidade', map.bodyClass === 'cidade');
   }
@@ -47,8 +57,9 @@ export class HUD {
   }
 
   setTimerText(text) {
-    const el = $('time');
-    if (el.textContent !== text) el.textContent = text;
+    if (text === this.timerText) return;
+    this.timerText = text;
+    (this.timeEl || (this.timeEl = $('time'))).textContent = text;
   }
 
   setHelp(text) {
@@ -75,12 +86,16 @@ export class HUD {
     if (el.innerHTML !== html) el.innerHTML = html;
   }
 
-  /** Setas e farol no painel. */
+  /** Setas e farol no painel (escreve no DOM só quando algo muda). */
   setSignals(ctrl) {
-    $('sl').classList.toggle('on', ctrl.indicatorLeftOn);
-    $('sr').classList.toggle('on', ctrl.indicatorRightOn);
-    $('hl').className = ctrl.lightsMode === 2 ? 'hi' : ctrl.lightsMode ? 'lo' : '';
-    $('gm').textContent = ctrl.manual ? 'M' : 'A';
+    const key = (ctrl.indicatorLeftOn ? 1 : 0) | (ctrl.indicatorRightOn ? 2 : 0) | (ctrl.lightsMode << 2) | (ctrl.manual ? 16 : 0);
+    if (key === this.signalsKey) return;
+    this.signalsKey = key;
+    const el = this.signalEls || (this.signalEls = { sl: $('sl'), sr: $('sr'), hl: $('hl'), gm: $('gm') });
+    el.sl.classList.toggle('on', ctrl.indicatorLeftOn);
+    el.sr.classList.toggle('on', ctrl.indicatorRightOn);
+    el.hl.className = ctrl.lightsMode === 2 ? 'hi' : ctrl.lightsMode ? 'lo' : '';
+    el.gm.textContent = ctrl.manual ? 'M' : 'A';
   }
 
   /** Botões de ação contextuais (só refaz o HTML quando mudam). */

@@ -72,10 +72,16 @@ export class AudioSystem {
   update({ engineLevel, throttle, engineOn, skid, sound }) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime, f = sound.baseFrequency + engineLevel * sound.frequencyRange;
-    this.engineOscA.frequency.setTargetAtTime(f, t, 0.05);
-    this.engineOscB.frequency.setTargetAtTime(f * 0.5, t, 0.05);
-    this.engineGain.gain.setTargetAtTime(engineOn ? 0.05 + throttle * 0.06 : 0, t, 0.08);
-    this.tireGain.gain.setTargetAtTime(Math.min(skid / 6, 1) * 0.06, t, 0.05);
+    const engine = engineOn ? 0.05 + throttle * 0.06 : 0, tire = Math.min(skid / 6, 1) * 0.06;
+    // reagenda só quando o alvo muda de forma audível (antes: 4 eventos de automação por quadro)
+    const last = this.lastTargets || (this.lastTargets = { f: -1, engine: -1, tire: -1 });
+    if (Math.abs(f - last.f) > 0.05) {
+      this.engineOscA.frequency.setTargetAtTime(f, t, 0.05);
+      this.engineOscB.frequency.setTargetAtTime(f * 0.5, t, 0.05);
+      last.f = f;
+    }
+    if (Math.abs(engine - last.engine) > 1e-4) this.engineGain.gain.setTargetAtTime(engine, t, 0.08), last.engine = engine;
+    if (Math.abs(tire - last.tire) > 1e-4) this.tireGain.gain.setTargetAtTime(tire, t, 0.05), last.tire = tire;
   }
 
   /** Relé do pisca (clique curto). */

@@ -16,11 +16,19 @@ export class Settings {
     this.mapId = saved.mapa ? 'salto' : 'circuito';
     this.driftMode = !!saved.drift;
     this.graphicsQuality = ['low', 'medium', 'high'].includes(saved.gfx) ? saved.gfx : 'medium';
-    this.shadows = typeof saved.shadow === 'boolean' ? saved.shadow : true;
+    // sombras: desligadas ou qualidade própria (antes só havia ligado/desligado em "shadow")
+    this.shadowQuality = ['off', 'low', 'medium', 'high'].includes(saved.shadowQ)
+      ? saved.shadowQ
+      : saved.shadow === false ? 'off' : this.graphicsQuality;
+    this.resolutionScale = typeof saved.res === 'number' ? clamp(saved.res, 0.5, 1) : 1;
     this.diagnostics = !!saved.diag;
     this.renderDistance = typeof saved.renderDistance === 'number'
       ? clamp(saved.renderDistance, 250, 1200)
       : 700;
+  }
+
+  get shadows() {
+    return this.shadowQuality !== 'off';
   }
 
   save() {
@@ -33,6 +41,8 @@ export class Settings {
       drift: this.driftMode ? 1 : 0,
       gfx: this.graphicsQuality,
       shadow: this.shadows,
+      shadowQ: this.shadowQuality,
+      res: this.resolutionScale,
       renderDistance: this.renderDistance,
       diag: this.diagnostics,
     });

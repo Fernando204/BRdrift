@@ -34,12 +34,18 @@ class MarkBuffer {
     P[p + 6] = l1x, P[p + 7] = 0.04, P[p + 8] = l1z, P[p + 9] = r1x, P[p + 10] = 0.04, P[p + 11] = r1z;
     C[c] = r, C[c + 1] = g, C[c + 2] = b, C[c + 3] = alpha0, C[c + 4] = r, C[c + 5] = g, C[c + 6] = b, C[c + 7] = alpha0;
     C[c + 8] = r, C[c + 9] = g, C[c + 10] = b, C[c + 11] = alpha1, C[c + 12] = r, C[c + 13] = g, C[c + 14] = b, C[c + 15] = alpha1;
-    this.geometry.attributes.position.needsUpdate = this.geometry.attributes.color.needsUpdate = true;
+    // envia à GPU só o quadrilátero novo (antes, o buffer inteiro de ~330 KB a cada segmento)
+    const pos = this.geometry.attributes.position, col = this.geometry.attributes.color;
+    pos.addUpdateRange(p, 12);
+    col.addUpdateRange(c, 16);
+    pos.needsUpdate = col.needsUpdate = true;
   }
 
   clear() {
     this.positions.fill(0);
-    this.geometry.attributes.position.needsUpdate = true;
+    const pos = this.geometry.attributes.position;
+    pos.clearUpdateRanges();     // o buffer inteiro é enviado
+    pos.needsUpdate = true;
   }
 }
 

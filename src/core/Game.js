@@ -38,6 +38,9 @@ export class Game {
     this.vehicleId = GAME.defaultVehicle;
     this.physicsInput = { accel: false, brake: false, handbrake: false, steer: 0 };   // reaproveitado a cada passo
     this.shownLap = 0;
+    this.exploringShown = null;
+    this.keyLabelsVersion = 0;                  // muda quando as teclas são reconfiguradas (textos das ações)
+    this.availableActionsBuilder = () => this.#availableActions();
     // objetos passados a cada quadro, criados uma vez só
     this.cameraContext = { menuOpen: true, vehicleState: ORIGIN, vehicleModel: null, cockpitOffset: null, onFoot: false, playerBody: null };
     this.audioContext = { engineLevel: 0, throttle: 0, engineOn: false, skid: 0, sound: null };
@@ -49,11 +52,7 @@ export class Game {
     this.scene = this.environment.scene;
     this.lighting = new Lighting(this.scene, this.environment.sunDirection);
     this.cameraController = new CameraController(this.renderer.canvas);
-    this.renderer.setQuality(this.settings.graphicsQuality);
-    this.lighting.setQuality(this.settings.graphicsQuality);
-    this.renderer.renderer.shadowMap.enabled = this.settings.shadows;
-    this.lighting.setShadows(this.settings.shadows);
-    this.cameraController.setRenderDistance(this.settings.renderDistance);
+    this.applyGraphics();
     this.world = new World(this.environment, this.assets);
     this.vehicles = new VehicleSystem(this.scene, this.assets);
     this.player = new PlayerController(this.scene, this.renderer.canvas);
@@ -62,6 +61,7 @@ export class Game {
     this.input = new InputSystem();
     this.audio = new AudioSystem(this.settings.volume);
     this.hud = new HUD();
+    this.editModeButton = $('editMode');
     this.monitor = new PerformanceMonitor(this.renderer.renderer);
     this.diagnostics = new DiagnosticsPanel(this.monitor);
     this.diagnostics.setVisible(this.settings.diagnostics);
@@ -83,10 +83,11 @@ export class Game {
       setNight: night => { this.setNight(night); this.menu.refresh(); this.saveSettings(); },
       setColor: index => { this.setColor(index); this.menu.refresh(); this.saveSettings(); },
       setVolume: v => { this.settings.volume = v; this.audio.setVolume(v); this.saveSettings(); },
-      setGraphicsQuality: quality => { this.settings.graphicsQuality = quality; this.renderer.setQuality(quality); this.lighting.setQuality(quality); this.applyWorldDetail(); this.menu.refresh(); this.saveSettings(); },
+      setGraphicsQuality: quality => this.setGraphicsPreset(quality),
+      setShadowQuality: quality => this.updateGraphics({ shadowQuality: quality }),
+      setResolutionScale: scale => this.updateGraphics({ resolutionScale: scale }),
       setDiagnostics: visible => { this.settings.diagnostics = visible; this.diagnostics.setVisible(visible); this.menu.refresh(); this.saveSettings(); },
-      setShadows: enabled => { this.settings.shadows = enabled; this.renderer.renderer.shadowMap.enabled = enabled; this.lighting.setShadows(enabled); this.applyWorldDetail(); this.menu.refresh(); this.saveSettings(); },
-      setRenderDistance: distance => { this.settings.renderDistance = distance; this.environment.setRenderDistance(distance); this.cameraController.setRenderDistance(distance); this.applyWorldDetail(); this.menu.refresh(); this.saveSettings(); },
+      setRenderDistance: distance => this.updateGraphics({ renderDistance: distance }),
     });
     this.gpsMap = new GpsMap(this);
     this.vehicleCustomization = new VehicleCustomization({
@@ -159,6 +160,7 @@ export class Game {
     this.setColor(this.settings.colorIndex);
     this.#spawnVehicle(false);
     this.player.sitIn(this.vehicle);
+    this.prewarmShaders();
     this.menu.enableStart();
     this.menu.setLoading('Modelo carregado.');
     if (this.benchmark) await this.benchmark.start(this);
@@ -298,6 +300,7 @@ export class Game {
       this.#resetLaps(map.gps ? '' : '0:00.000');
       this.#spawnVehicle(false);
       this.updateHelp();
+      this.prewarmShaders();
       if (!initial) this.saveSettings(), this.menu.refresh();
     } finally {
       this.loadingMap = false;
@@ -334,13 +337,63 @@ export class Game {
     this.vehicle?.setColor(this.vehicleColors[this.settings.colorIndex]);
   }
 
+  /** Predefinição Baixa/Média/Alta: ajusta todos os itens gráficos (cada um pode ser mudado depois). */
+  setGraphicsPreset(quality) {
+    const preset = GRAPHICS_PRESETS[quality];
+    this.updateGraphics({ graphicsQuality: quality, shadowQuality: quality, renderDistance: preset.renderDistance, resolutionScale: 1 });
+  }
+
+  /** Muda itens gráficos, aplica, atualiza o menu e salva. */
+  updateGraphics(changes) {
+    Object.assign(this.settings, changes);
+    this.applyGraphics();
+    this.menu.refresh();
+    this.saveSettings();
+  }
+
+  /** Aplica as opções gráficas atuais ao renderizador, sombras, distância e detalhes do mapa. */
+  applyGraphics() {
+    const s = this.settings, gl = this.renderer.renderer;
+    this.renderer.setQuality(s.graphicsQuality);
+    this.renderer.setResolutionScale(s.resolutionScale);
+    this.lighting.setShadowQuality(s.shadowQuality);
+    if (gl.shadowMap.enabled !== s.shadows) {
+      gl.shadowMap.enabled = s.shadows;
+      this.scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });   // shaders com/sem sombra
+      if (this.started !== undefined) queueMicrotask(() => this.prewarmShaders());
+    }
+    this.environment.setRenderDistance(s.renderDistance);
+    this.cameraController.setRenderDistance(s.renderDistance);
+    this.resize();
+    this.applyWorldDetail();
+  }
+
+  /**
+   * Compila de antemão as duas variantes dos shaders (faróis acesos e apagados). Os holofotes
+   * ficam invisíveis quando apagados para economizar GPU; sem isso, acender os faróis pela
+   * primeira vez recompilaria todos os materiais e travaria o jogo por um instante.
+   */
+  prewarmShaders() {
+    const vehicle = this.vehicle;
+    if (!vehicle) return;
+    // um quadro completo em cada estado (inclui as variantes da passada de transmission e das sombras,
+    // que renderer.compile() não cobre); a imagem é sobrescrita no quadro seguinte
+    const camera = this.cameraController.camera, lights = vehicle.headlights;
+    const visible = lights.map(l => l.visible);
+    for (const on of [true, false]) {
+      for (const l of lights) l.visible = on;
+      this.renderer.render(this.scene, camera);
+    }
+    lights.forEach((l, i) => (l.visible = visible[i]));
+  }
+
   /**
    * Distância de visão (o que está além da neblina total não é desenhado), LOD e sombras do mapa,
    * conforme as opções gráficas.
    */
   applyWorldDetail() {
     const preset = GRAPHICS_PRESETS[this.settings.graphicsQuality] || GRAPHICS_PRESETS.medium;
-    this.world.map?.setDetail?.({
+    this.world?.map?.setDetail?.({
       viewDistance: this.environment.scene.fog.far,
       lodDistance: preset.lodDistance,
       farDensity: preset.farDensity,
@@ -349,11 +402,13 @@ export class Game {
   }
 
   saveSettings() {
+    if (this.benchmark) return;   // o benchmark muda mapa/horário sem alterar as preferências do jogador
     if (this.controller) this.settings.manualGearbox = this.controller.manual;   // T troca o câmbio durante o jogo
     this.settings.save();
   }
 
   updateHelp() {
+    this.keyLabelsVersion = (this.keyLabelsVersion + 1) & 0xffff;
     const k = a => this.input.label(a), city = !!this.world.map?.gps;
     const customize = this.player && !this.player.inVehicle
       ? (this.editMode ? ' \xB7 Mire numa pe\xE7a e clique para personalizar' : ' \xB7 Clique na porta para abrir/fechar')
@@ -438,7 +493,7 @@ export class Game {
     const exploring = !this.player.inVehicle && this.started && !this.paused && !this.gpsMap.open;
     this.vehicleCustomization.setActive(exploring);
     this.player.firstPerson.setEnabled(exploring && !this.vehicleCustomization.open);
-    $('editMode').hidden = !exploring;
+    if (exploring !== this.exploringShown) this.exploringShown = exploring, this.editModeButton.hidden = !exploring;
 
     if (this.playing && !this.gpsMap.open) {
       monitor.begin('physics');
@@ -448,7 +503,7 @@ export class Game {
       monitor.begin('world');
       if (!this.player.inVehicle) this.player.update(dt, this.input, map, ctrl.state, this.vehicles.config);
       ctrl.updateEngine(dt);
-      this.hud.setActions(this.#availableActions());
+      this.hud.updateActions(this.player.actionsKey(vehicle, ctrl) | (this.keyLabelsVersion << 8), this.availableActionsBuilder);
       const focus = this.focus;
       if (map.gps) map.gps.update(focus, dt), this.hud.setDestination(map.gps);
       this.skidMarks.update(ctrl.state, map);

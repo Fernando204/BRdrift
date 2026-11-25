@@ -202,6 +202,9 @@ export class Vehicle {
     for (const light of this.headlights) {
       const side = light.userData.side;
       light.intensity += ([0, 3e3, 7e3][mode] - light.intensity) * Math.min(1, dt * 12);
+      // apagado de fato: o Three.js deixa de calcular os 2 holofotes em todos os pixels da cena
+      // (as duas variantes dos shaders são pré-compiladas em Game.prewarmShaders, sem travadas)
+      light.visible = mode > 0 || light.intensity > 1;
       light.angle = high ? 0.33 : 0.5;
       light.distance = high ? 140 : 70;
       light.target.position.set(side * (high ? 0.35 : 0.5), high ? 0.5 : 0, high ? 45 : 14);

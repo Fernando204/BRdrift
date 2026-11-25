@@ -132,8 +132,11 @@ export class RoadNetwork {
       this.#stretch(o.e, o.pos, d.pos, pts);
       return { pts, L: Math.abs(d.pos - o.pos) };
     }
-    const N = this.adjacency.length, g = new Float64Array(N).fill(Infinity), via = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
-    const heap = new MinHeap();
+    // buffers reaproveitados entre recálculos (a rota é refeita a cada 0,6 s com destino marcado)
+    const N = this.adjacency.length;
+    if (!this.search || this.search.g.length !== N) this.search = { g: new Float64Array(N), via: new Int32Array(N), closed: new Uint8Array(N), heap: new MinHeap() };
+    const { g, via, closed, heap } = this.search;
+    g.fill(Infinity), via.fill(-1), closed.fill(0), heap.clear();
     const h = v => Math.hypot(this.nodeXY[v * 2] - d.x, this.nodeXY[v * 2 + 1] - d.z);
     const eo = this.edges[o.e], ed = this.edges[d.e];
     g[eo.a] = o.pos;
@@ -142,7 +145,7 @@ export class RoadNetwork {
     heap.push(g[eo.b] + h(eo.b), eo.b);
     let best = Infinity, end = -1;
     while (heap.size) {
-      const [f, v] = heap.pop();
+      const f = heap.topKey, v = heap.pop();
       if (closed[v]) continue;
       if (f >= best) break;
       closed[v] = 1;
@@ -174,32 +177,55 @@ export class RoadNetwork {
 
 const EMPTY = [];
 
+/** Fila de prioridade mínima em arrays paralelos (sem criar um objeto por item). */
 class MinHeap {
-  constructor() { this.items = []; }
-  get size() { return this.items.length; }
+  constructor() {
+    this.keys = new Float64Array(256);
+    this.values = new Int32Array(256);
+    this.size = 0;
+  }
+
+  clear() {
+    this.size = 0;
+  }
+
+  get topKey() {
+    return this.keys[0];
+  }
+
   push(f, v) {
-    const a = this.items;
-    a.push([f, v]);
-    for (let i = a.length - 1; i > 0;) {
+    if (this.size === this.keys.length) {
+      const k = new Float64Array(this.size * 2), w = new Int32Array(this.size * 2);
+      k.set(this.keys), w.set(this.values);
+      this.keys = k, this.values = w;
+    }
+    const K = this.keys, V = this.values;
+    let i = this.size++;
+    while (i > 0) {
       const p = (i - 1) >> 1;
-      if (a[p][0] <= a[i][0]) break;
-      [a[p], a[i]] = [a[i], a[p]];
+      if (K[p] <= f) break;
+      K[i] = K[p], V[i] = V[p];
       i = p;
     }
+    K[i] = f, V[i] = v;
   }
+
+  /** Remove e devolve o valor de menor chave (leia topKey antes, se precisar da chave). */
   pop() {
-    const a = this.items, top = a[0], last = a.pop();
-    if (a.length) {
-      a[0] = last;
-      for (let i = 0; ;) {
+    const K = this.keys, V = this.values, top = V[0], n = --this.size;
+    if (n > 0) {
+      const f = K[n], v = V[n];
+      let i = 0;
+      for (;;) {
         const l = i * 2 + 1, r = l + 1;
-        let m = i;
-        if (l < a.length && a[l][0] < a[m][0]) m = l;
-        if (r < a.length && a[r][0] < a[m][0]) m = r;
-        if (m === i) break;
-        [a[m], a[i]] = [a[i], a[m]];
+        let m = -1, mk = f;
+        if (l < n && K[l] < mk) m = l, mk = K[l];
+        if (r < n && K[r] < mk) m = r;
+        if (m < 0) break;
+        K[i] = K[m], V[i] = V[m];
         i = m;
       }
+      K[i] = f, V[i] = v;
     }
     return top;
   }

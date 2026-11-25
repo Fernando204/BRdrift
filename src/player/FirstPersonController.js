@@ -140,9 +140,11 @@ export class FirstPersonController {
     }
   }
 
+  /** Posição do olho (objeto reaproveitado; não guarde a referência entre quadros). */
   getCameraPosition(body) {
-    const bob = Math.sin(this.bobPhase) * this.bobAmount;
-    return { x: body.x, y: body.y + FPS_CONFIG.eyeHeight + bob, z: body.z };
+    const bob = Math.sin(this.bobPhase) * this.bobAmount, eye = this.eye || (this.eye = { x: 0, y: 0, z: 0 });
+    eye.x = body.x, eye.y = body.y + FPS_CONFIG.eyeHeight + bob, eye.z = body.z;
+    return eye;
   }
 
   resolveSafeSpawnPoint(body, point, map, vehicleState, vehicleConfig) {
