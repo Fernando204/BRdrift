@@ -1,0 +1,39 @@
+server:
+  port: ${PORT:8080}            # o Render informa a porta em PORT
+  # atrás do proxy HTTPS do Render: lê X-Forwarded-Proto (cookie Secure) e o IP real
+  forward-headers-strategy: native
+  servlet:
+    session:
+      persistent: false
+
+spring:
+  datasource:
+    # banco em arquivo (server/data/cargame.mv.db); não precisa instalar nada.
+    # Em produção pode ser trocado por PostgreSQL com as variáveis SPRING_DATASOURCE_URL,
+    # SPRING_DATASOURCE_USERNAME e SPRING_DATASOURCE_PASSWORD (veja o README).
+    url: jdbc:h2:file:./data/cargame;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+game:
+  # pasta do jogo (index.html, dist/, assets/, src/styles/), relativa a server/
+  static-dir: ..
+  session:
+    cookie-name: CG_SESSION
+    days: 30
+  economy:
+    car-price: 1000            # preço de um carro na loja
+    paint-part-price: 150      # pintar uma peça
+    full-paint-discount: 0.10  # pintar o carro inteiro: soma das peças menos 10%
+    suspension-price-per-cm: 30
+    coins-per-point: 0.02      # 1 moeda a cada 50 pontos de drift
+    max-drift-points-per-second: 1500
+    max-drift-seconds: 120
+  rooms:
+    global-map: salto
+    global-max-players: 32
+    private-max-players: 8

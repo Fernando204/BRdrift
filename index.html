@@ -3,54 +3,186 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Corrida no Circuito</title>
+<title>Drift BR</title>
 <link rel="stylesheet" href="src/styles/main.css">
 <link rel="stylesheet" href="src/styles/menus.css">
 <link rel="stylesheet" href="src/styles/hud.css">
+<link rel="stylesheet" href="src/styles/interface.css">
 </head>
 <body>
 
-<!-- Menu inicial / pausa -->
-<div id="intro"><div class="p menu">
-  <section id="scr-main" class="scr">
-    <h1>Corrida no Circuito</h1>
-    <p class="sub">Dê voltas na pista, derrape e bata o seu recorde.</p>
-    <p id="rot">📱 Gire o celular para a horizontal para jogar melhor.</p>
-    <div class="row"><span>Carro</span><div class="seg" id="o-car"></div></div>
-    <div class="row"><span>Mapa</span><div class="seg" id="o-map"><button data-v="0">Circuito</button><button data-v="1">Salto de Pirapora</button></div></div>
-    <p class="hint" id="osm" hidden>Ruas reais de Salto de Pirapora · © colaboradores do OpenStreetMap. Casas e prédios são genéricos.</p>
-    <p id="ld">Carregando modelo 3D…</p>
-    <button id="go" class="btn pri" disabled>Aguarde…</button>
-    <button id="rs" class="btn" style="display:none">Reiniciar corrida</button>
-    <button class="btn" data-scr="opt">Opções</button>
-    <button class="btn" data-scr="ctl">Controles</button>
-    <p class="hint">Arraste o mouse (ou o dedo) para girar a câmera · Esc abre o menu</p>
+<!-- Interface (menus): fica sobre o estúdio 3D do carro, separada do cenário do jogo -->
+<div id="ui" class="ui">
+  <div class="ui-shade" aria-hidden="true"></div>
+
+  <header class="topbar" id="topbar" hidden>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>DRIFT <b>BR</b></div>
+    <nav class="tabs" id="tabs" aria-label="Menu principal">
+      <button data-tab="play" class="on">Jogar</button>
+      <button data-tab="garage" class="online-only">Oficina</button>
+      <button data-tab="shop" class="online-only">Loja</button>
+      <button data-tab="ranking" class="online-only">Ranking</button>
+      <button data-tab="options">Opções</button>
+      <button data-tab="controls">Controles</button>
+    </nav>
+    <div class="player-chip">
+      <span class="avatar" id="chip-avatar" aria-hidden="true"></span>
+      <span class="chip-name" id="chip-name"></span>
+      <span class="coins online-only" id="chip-coins" title="Moedas">0</span>
+      <button class="icon-btn" id="logout" title="Sair da conta" aria-label="Sair da conta">⏻</button>
+    </div>
+  </header>
+
+  <!-- Entrar / criar conta -->
+  <section id="screen-auth" class="screen center" hidden>
+    <div class="card auth-card">
+      <div class="brand big"><span class="brand-mark" aria-hidden="true"></span>DRIFT <b>BR</b></div>
+      <p class="muted">Drift nas ruas de Salto de Pirapora</p>
+      <div class="seg-tabs" id="auth-tabs" role="tablist">
+        <button data-mode="login" class="on" role="tab">Entrar</button>
+        <button data-mode="register" role="tab">Criar conta</button>
+      </div>
+      <form id="auth-form" novalidate>
+        <label class="field"><span>Nome de usuário</span><input id="auth-user" autocomplete="username" maxlength="20" spellcheck="false" required></label>
+        <label class="field"><span>Senha</span><input id="auth-pass" type="password" autocomplete="current-password" maxlength="72" required></label>
+        <p class="hint-line" id="auth-hint">3 a 20 caracteres: letras, números, ponto, hífen ou _. Senha com 6 ou mais.</p>
+        <p class="form-error" id="auth-error" role="alert"></p>
+        <button class="btn-primary wide" id="auth-submit" type="submit">Entrar</button>
+      </form>
+      <p class="muted small" id="auth-status"></p>
+      <button class="btn-link" id="auth-offline" hidden>Jogar offline (sem salvar progresso)</button>
+    </div>
   </section>
-  <section id="scr-opt" class="scr" hidden>
-    <h2>Opções</h2>
-    <div class="row graphic-row"><span>Qualidade gráfica</span><div class="seg" id="o-quality"><button data-v="0">Baixa</button><button data-v="1">Média</button><button data-v="2">Alta</button></div></div>
-    <div class="row graphic-row"><span>Sombras</span><div class="seg" id="o-shadow"><button data-v="0">Sem</button><button data-v="1">Baixa</button><button data-v="2">Média</button><button data-v="3">Alta</button></div></div>
-    <div class="row graphic-row"><label for="o-res">Resolução de renderização</label><span class="distance-control"><input id="o-res" type="range" min="50" max="100" step="5"><output id="o-res-value" for="o-res">100%</output></span></div>
-    <div class="row graphic-row"><label for="o-distance">Distância de renderização</label><span class="distance-control"><input id="o-distance" type="range" min="250" max="1200" step="50"><output id="o-distance-value" for="o-distance">700 m</output></span></div>
-    <div class="row graphic-row"><span>Painel de desempenho (F3)</span><div class="seg" id="o-diag"><button data-v="0">Oculto</button><button data-v="1">Visível</button></div></div>
-    <div class="row"><span>Câmbio</span><div class="seg" id="o-gb"><button data-v="0">Automático</button><button data-v="1">Manual</button></div></div>
-    <div class="row"><span>Direção</span><div class="seg" id="o-dm"><button data-v="0">Normal</button><button data-v="1">Drift</button></div></div>
-    <div class="row"><span>Horário</span><div class="seg" id="o-nt"><button data-v="0">Dia</button><button data-v="1">Noite</button></div></div>
-    <div class="row"><span>Cor do carro</span><div class="sw" id="o-col"></div></div>
-    <div class="row graphic-row"><label for="o-low">Rebaixamento</label><span class="distance-control"><input id="o-low" type="range" min="0" max="100" step="5"><output id="o-low-value" for="o-low">Original</output></span></div>
-    <div class="row"><span>Volume</span><input id="o-vol" type="range" min="0" max="100"></div>
-    <button class="btn" data-scr="main">Voltar</button>
+
+  <!-- Primeiro acesso: carro inicial -->
+  <section id="screen-starter" class="screen center" hidden>
+    <div class="starter">
+      <h1 class="title">Escolha seu primeiro carro</h1>
+      <p class="muted">Ele é seu de graça. O outro fica na loja por 1000 moedas, ganhas fazendo drift.</p>
+      <div class="car-cards" id="starter-cards"></div>
+    </div>
   </section>
-  <section id="scr-ctl" class="scr" hidden>
-    <h2>Controles</h2>
-    <p class="hint">Clique numa tecla e pressione a nova (Esc cancela, Delete limpa). Cada ação tem duas teclas.</p>
-    <div id="ctlList"></div>
-    <p id="ctlmsg" class="hint"></p>
-    <p class="hint tc">Em telas de toque, os botões na tela são fixos.</p>
-    <button class="btn" id="ctlreset">Restaurar padrão</button>
-    <button class="btn" data-scr="main">Voltar</button>
+
+  <!-- Menu principal -->
+  <section id="screen-hub" class="screen hub" hidden>
+    <div class="panel" id="tab-play">
+      <h2>Jogar</h2>
+      <div class="mode-card resume-card" id="resume-card" hidden>
+        <div class="mode-icon global" aria-hidden="true"></div>
+        <div class="mode-text"><h3>Partida em andamento</h3><p class="muted" id="resume-info"></p></div>
+        <button class="btn-primary" id="resume-play">Continuar</button>
+        <button class="btn danger" id="resume-exit">Sair</button>
+      </div>
+      <div class="mode-card online-only">
+        <div class="mode-icon global" aria-hidden="true"></div>
+        <div class="mode-text"><h3>Sala global</h3><p class="muted"><span id="global-count">0</span> jogando agora · Salto de Pirapora</p></div>
+        <button class="btn-primary" id="play-global">Entrar</button>
+      </div>
+      <div class="mode-card">
+        <div class="mode-icon solo" aria-hidden="true"></div>
+        <div class="mode-text"><h3>Treino solo</h3><p class="muted"><span class="online-only">Sem outros jogadores; o drift também vale moedas.</span><span class="offline-only">Modo offline: nada é salvo.</span></p>
+          <div class="chips" id="solo-map"><button data-map="circuito" class="on">Circuito</button><button data-map="salto">Salto de Pirapora</button></div>
+        </div>
+        <button class="btn" id="play-solo">Treinar</button>
+      </div>
+      <div class="offline-only">
+        <div class="section-title">Carro</div>
+        <div class="chips" id="offline-cars"></div>
+      </div>
+      <div class="online-only">
+        <div class="section-title">Salas privadas <button class="btn-small" id="rooms-refresh" type="button">Atualizar</button></div>
+        <div class="room-list" id="room-list"><p class="muted small">Nenhuma sala aberta.</p></div>
+        <form class="create-room" id="create-room">
+          <div class="section-subtitle">Criar sala</div>
+          <div class="form-grid">
+            <label class="field"><span>Nome</span><input id="room-name" maxlength="24" placeholder="Racha da madrugada" required></label>
+            <label class="field"><span>Senha</span><input id="room-pass" type="password" maxlength="32" autocomplete="new-password" required></label>
+            <label class="field"><span>Mapa</span><select id="room-map"><option value="salto">Salto de Pirapora</option><option value="circuito">Circuito</option></select></label>
+          </div>
+          <button class="btn-primary" type="submit">Criar e entrar</button>
+        </form>
+      </div>
+      <p class="form-error" id="play-error" role="alert"></p>
+    </div>
+
+    <div class="panel" id="tab-garage" hidden>
+      <h2>Oficina</h2>
+      <div class="chips" id="garage-cars"></div>
+      <div class="section-title">Pintura <span class="muted small" id="paint-note"></span></div>
+      <div class="palette" id="garage-palette"></div>
+      <p class="muted small">Escolha a cor e clique nas peças. Cada peça custa <b id="part-price">0</b> moedas.</p>
+      <div class="parts" id="garage-parts"></div>
+      <label class="check"><input type="checkbox" id="full-paint"><span>Pintar o carro inteiro com esta cor <b class="discount">−10%</b></span></label>
+      <div class="section-title">Suspensão</div>
+      <div class="height-row">
+        <span class="muted small">Original</span>
+        <input type="range" id="garage-height" min="0" max="100" step="5" aria-label="Rebaixamento">
+        <output id="garage-height-value">Original</output>
+      </div>
+      <p class="muted small">Baixar ou erguer custa <b id="cm-price">0</b> moedas por centímetro alterado.</p>
+      <div class="cart">
+        <div class="cart-lines" id="cart-lines"></div>
+        <div class="cart-total"><span>Total</span><b class="coins" id="garage-total">0</b></div>
+        <div class="cart-actions"><button class="btn" id="garage-undo" type="button">Desfazer</button><button class="btn-primary" id="garage-confirm" type="button">Confirmar</button></div>
+      </div>
+      <p class="form-error" id="garage-error" role="alert"></p>
+    </div>
+
+    <div class="panel" id="tab-shop" hidden>
+      <h2>Loja</h2>
+      <p class="muted">Ganhe moedas fazendo drift: quanto mais rápido, mais de lado e mais tempo, mais pontos.</p>
+      <div class="car-cards compact" id="shop-cards"></div>
+      <p class="form-error" id="shop-error" role="alert"></p>
+    </div>
+
+    <div class="panel" id="tab-ranking" hidden>
+      <h2>Ranking de drift</h2>
+      <div class="stats" id="my-stats"></div>
+      <table class="ranking"><thead><tr><th>#</th><th>Piloto</th><th>Melhor drift</th><th>Total</th></tr></thead><tbody id="ranking-body"></tbody></table>
+    </div>
+
+    <div class="panel" id="tab-options" hidden>
+      <h2>Opções</h2>
+      <div class="row graphic-row"><span>Qualidade gráfica</span><div class="seg" id="o-quality"><button data-v="0">Baixa</button><button data-v="1">Média</button><button data-v="2">Alta</button></div></div>
+      <div class="row graphic-row"><span>Sombras</span><div class="seg" id="o-shadow"><button data-v="0">Sem</button><button data-v="1">Baixa</button><button data-v="2">Média</button><button data-v="3">Alta</button></div></div>
+      <div class="row graphic-row"><label for="o-res">Resolução</label><span class="distance-control"><input id="o-res" type="range" min="50" max="100" step="5"><output id="o-res-value" for="o-res">100%</output></span></div>
+      <div class="row graphic-row"><label for="o-distance">Distância de visão</label><span class="distance-control"><input id="o-distance" type="range" min="250" max="1200" step="50"><output id="o-distance-value" for="o-distance">700 m</output></span></div>
+      <div class="row graphic-row"><span>Painel de desempenho (F3)</span><div class="seg" id="o-diag"><button data-v="0">Oculto</button><button data-v="1">Visível</button></div></div>
+      <div class="row"><span>Câmbio</span><div class="seg" id="o-gb"><button data-v="0">Automático</button><button data-v="1">Manual</button></div></div>
+      <div class="row"><span>Direção</span><div class="seg" id="o-dm"><button data-v="0">Normal</button><button data-v="1">Drift</button></div></div>
+      <div class="row"><span>Horário</span><div class="seg" id="o-nt"><button data-v="0">Dia</button><button data-v="1">Noite</button></div></div>
+      <div class="row offline-only"><span>Cor do carro</span><div class="sw" id="o-col"></div></div>
+      <div class="row graphic-row offline-only"><label for="o-low">Rebaixamento</label><span class="distance-control"><input id="o-low" type="range" min="0" max="100" step="5"><output id="o-low-value" for="o-low">Original</output></span></div>
+      <div class="row"><span>Volume</span><input id="o-vol" type="range" min="0" max="100"></div>
+    </div>
+
+    <div class="panel" id="tab-controls" hidden>
+      <h2>Controles</h2>
+      <p class="muted small">Clique numa tecla e pressione a nova (Esc cancela, Delete limpa). Cada ação tem duas teclas.</p>
+      <div id="ctlList"></div>
+      <p id="ctlmsg" class="muted small"></p>
+      <button class="btn" id="ctlreset">Restaurar padrão</button>
+    </div>
+
+    <div class="car-caption" id="car-caption"></div>
   </section>
-</div></div>
+
+  <!-- Pausa -->
+  <section id="screen-pause" class="screen center" hidden>
+    <div class="card pause-card">
+      <h2>Pausado</h2>
+      <p class="muted" id="pause-info"></p>
+      <button class="btn-primary wide" id="pause-resume">Continuar</button>
+      <button class="btn wide" id="pause-restart">Voltar à largada</button>
+      <button class="btn wide" id="pause-options">Opções</button>
+      <button class="btn wide danger" id="pause-exit">Sair para o menu</button>
+    </div>
+  </section>
+
+  <div class="loading" id="loading" hidden><div class="spinner" aria-hidden="true"></div><span id="loading-text">Carregando…</span></div>
+</div>
+<div id="toasts" aria-live="polite"></div>
+<div id="tags" aria-hidden="true"></div>
 
 <!-- Painel durante o jogo -->
 <div id="hud">
@@ -60,6 +192,8 @@
   <div id="help" class="p">Q/E setas · H alerta · L faróis · N noite · Shift/Ctrl marchas · T manual · P cor · R pista</div>
   <div id="sg"><span id="sl">◀</span><span id="hl">💡</span><span id="sr">▶</span></div>
   <div id="aim" hidden aria-hidden="true"></div>
+  <div id="drift" class="drift" hidden><div class="drift-points" id="drift-points">0</div><div class="drift-combo"><span id="drift-combo">x1</span><i><b id="drift-bar"></b></i></div><div class="drift-label">DRIFT</div></div>
+  <div id="hud-coins" class="hud-coins coins" hidden>0</div>
   <div id="msg"></div>
   <div id="acao"></div>
   <button id="pbtn" class="p">☰ Menu</button>

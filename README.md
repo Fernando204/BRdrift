@@ -1,13 +1,22 @@
 # Chevette SL e Saveiro — jogo de carro 3D
 
-Jogo de direção em Three.js com dois carros modelados no Blender (Chevrolet Chevette SL e VW Saveiro G7 Robust, escolhidos em Menu → Carro), dois mapas (um circuito e as ruas reais de Salto de Pirapora/SP com GPS), personagem que entra e sai do carro, partida no motor, câmbio manual/automático e modos de condução normal (com TC/ESC) e drift.
+Jogo de drift online em Three.js com dois carros modelados no Blender (Chevrolet Chevette SL e VW Saveiro G7 Robust), dois mapas (um circuito e as ruas reais de Salto de Pirapora/SP com GPS), personagem que entra e sai do carro, partida no motor, câmbio manual/automático e modos de condução normal (com TC/ESC) e drift.
 
-Em **Menu → Opções**, ajuste a qualidade gráfica, ative ou desative sombras e controle a distância de renderização. As preferências são salvas no navegador.
+Com o servidor (pasta `server/`, Java + Spring Boot) o jogo tem conta, moedas, loja, oficina, ranking e multiplayer. Sem ele, dá para jogar offline (nada é salvo).
 
 ## Como jogar
 
-- **Sem instalar nada:** abra `index.html` direto no navegador. Funciona também por `file://`.
-- **Com servidor local:** rode `python -m http.server 8765` e acesse `http://localhost:8765`.
+- **Online (completo):** suba o servidor (veja [Servidor](#servidor)) e acesse `http://localhost:8080`.
+- **Offline:** abra `index.html` direto no navegador (funciona por `file://`) ou rode `python -m http.server 8765`. A tela de login oferece "Jogar offline" quando não há servidor.
+
+### Progresso online
+
+- **Conta:** só nome de usuário (único, 3 a 20 caracteres) e senha (6 ou mais). O login fica num cookie de sessão por 30 dias.
+- **Primeiro carro:** no primeiro acesso você escolhe o Chevette ou a Saveiro de graça. O outro custa **1000 moedas** na Loja.
+- **Moedas:** vêm do drift. Os pontos sobem com velocidade × ângulo, e o combo (até ×4) cresce a cada 2 s de drift sem parar. Bater zera o drift. Ao terminar, cada ponto vale 0,02 moeda (5000 pts = 100 moedas). O servidor confere se a pontuação é possível antes de pagar.
+- **Oficina:** escolha a cor e clique nas peças (150 moedas cada); pintar o carro inteiro custa a soma das peças com 10% de desconto. Baixar ou erguer a suspensão custa 30 moedas por centímetro alterado. A prévia aparece no carro antes de pagar.
+- **Salas:** a sala global (Salto de Pirapora, até 32 jogadores) é só entrar. Salas privadas têm nome, senha e mapa; cada jogador pode ter uma aberta, com até 8 pessoas, e ela fecha quando fica vazia.
+- **Ranking:** os 20 melhores drifts.
 
 Os controles podem ser trocados em **Menu → Controles**. Os padrões são:
 
@@ -26,7 +35,7 @@ Os controles podem ser trocados em **Menu → Controles**. Os padrões são:
 | T | manual/automático |
 | B | modo normal/drift |
 | N | dia/noite |
-| P | pintura |
+| P | pintura (só offline; online é na Oficina) |
 | R | voltar à pista/rua |
 | Esc | menu |
 
@@ -57,6 +66,59 @@ npm run dev
 | `npm run assets` | executa `optimize:chevette` e depois `embed` |
 | `npm run city` | regera o mapa da cidade a partir de `data/export.geojson` |
 
+## Servidor
+
+Back-end em `server/` (Java 21, Spring Boot 3, Maven). Ele guarda contas e progresso num banco H2 em arquivo (`server/data/`), atende a API REST, o WebSocket do multiplayer e também serve o jogo (`index.html`, `dist/`, `assets/`), assim cookie e WebSocket ficam na mesma origem.
+
+```powershell
+cd server; mvn spring-boot:run
+```
+
+Depois acesse `http://localhost:8080`. Testes do servidor:
+
+```powershell
+cd server; mvn test
+```
+
+### Docker e Render
+
+O `Dockerfile` da raiz compila o JavaScript e o servidor e gera uma imagem só com o Java, o servidor e os arquivos do jogo:
+
+```powershell
+docker build -t drift-br .
+```
+
+```powershell
+docker run -p 8080:8080 -v drift-dados:/app/data drift-br
+```
+
+Para publicar no [Render](https://render.com): envie o repositório ao GitHub e, no painel, use **New → Blueprint** (lê o `render.yaml`) ou **New → Web Service** com o runtime **Docker**. O servidor usa a porta que o Render passa em `PORT`, e o cookie de login sai como `Secure` atrás do HTTPS dele. O WebSocket funciona direto no mesmo endereço.
+
+**Dados:** no plano gratuito o disco do contêiner é apagado a cada deploy ou reinício, e com ele o banco H2 (contas e moedas). Para guardar os dados, escolha uma destas opções:
+
+- **PostgreSQL** (o driver já vem na imagem): crie um banco no Render e configure no serviço
+  `SPRING_DATASOURCE_URL=jdbc:postgresql://<host>:5432/<banco>`, `SPRING_DATASOURCE_USERNAME` e `SPRING_DATASOURCE_PASSWORD`, com os dados da "Internal Database URL". As tabelas são criadas sozinhas.
+- **Disco persistente** (planos pagos): monte em `/app/data` (há um exemplo comentado no `render.yaml`).
+
+No plano gratuito o serviço também dorme após 15 minutos sem acesso, e o primeiro acesso depois disso demora cerca de um minuto.
+
+Preços e limites ficam em `server/src/main/resources/application.yml` (`game.economy`, `game.rooms`); carros, peças pintáveis e preços dos carros em `catalog.json`.
+
+| Rota | O que faz |
+|---|---|
+| `POST /api/auth/register`, `/api/auth/login` | cria conta / entra (`{username, password}`); devolve o perfil e grava o cookie `CG_SESSION` |
+| `POST /api/auth/logout` | encerra a sessão |
+| `GET /api/me` | perfil: moedas, carro em uso, carros com cores e altura, recordes |
+| `GET /api/catalog` | carros, peças e preços |
+| `POST /api/garage/starter` | escolhe o carro inicial (`{carId}`) |
+| `POST /api/shop/buy`, `/api/garage/select` | compra / usa um carro (`{carId}`) |
+| `POST /api/garage/paint` | pinta peças (`{carId, colors: {peça: "#rrggbb"}}`) ou o carro inteiro (`{carId, fullColor}`) |
+| `POST /api/garage/suspension` | altura (`{carId, lowering: 0..1}`) |
+| `POST /api/score/drift` | registra um drift (`{points, durationMs}`) e paga as moedas |
+| `GET /api/leaderboard` | ranking |
+| `GET/POST /api/rooms` | lista salas / cria sala privada (`{name, password, map}`) |
+| `WS /ws` | multiplayer (mensagens JSON com campo `t`: `join`, `s` estado do carro a 12 Hz, `look`, `leave`) |
+
 ## Estrutura
 
 ```
@@ -76,7 +138,8 @@ src/
     CollisionSystem.js     colisões carro/jogador × obstáculos
     InputSystem.js         teclado, toque, teclas configuráveis ("binds")
     AudioSystem.js         motor, pneus, pisca, motor de arranque (Web Audio)
-    VehicleSystem.js       cria e descarta veículos a partir do registro
+    VehicleSystem.js       cria e descarta veículos (modelos compartilhados com contagem de uso)
+    DriftScoring.js        pontos e combo de drift
   vehicles/
     vehicles.config.js     REGISTRO DE VEÍCULOS (modelo, peças, luzes, física, som)
     Vehicle.js             parte visual: monta o glTF, funde malhas estáticas, anima rodas/porta/luzes
@@ -89,6 +152,7 @@ src/
     Lighting.js            sol e sombras
     World.js               mapa ativo: carrega sob demanda e descarta o anterior
     textures.js            texturas de canvas
+    Showroom.js            estúdio dos menus (o carro girando, separado do cenário)
     effects/               marcas de pneu e fumaça (buffers e sprites reaproveitados)
     maps/
       maps.config.js       REGISTRO DE MAPAS
@@ -96,9 +160,20 @@ src/
       CityMap.js           Salto de Pirapora (ruas, prédios, árvores, minimapa)
       city/RoadNetwork.js  grafo de ruas, índice espacial e rotas A*
       city/GpsRoute.js     destino, linha da rota e marcador
-  ui/                      HUD, mostradores, menu, mapa do GPS, botões de toque
+  net/
+    ApiClient.js           chamadas REST ao servidor (cookie de sessão)
+    Session.js             perfil, catálogo e cálculo de preços (espelho do servidor)
+    MultiplayerClient.js   WebSocket das salas
+  multiplayer/
+    RemotePlayers.js       carros dos outros jogadores (interpolação, nomes, colisão)
+  ui/
+    Interface.js           telas: login, carro inicial, menu (Jogar, Oficina, Loja, Ranking), pausa
+    Garage.js              oficina: pintura por peça/inteira e suspensão, com prévia e carrinho
+    Menu.js                opções e controles
+    ...                    HUD, mostradores, mapa do GPS, botões de toque
   utils/                   constantes, matemática, helpers (DOM, storage, dispose)
-  styles/                  main.css (base), menus.css (menu e GPS), hud.css (painel e toque)
+  styles/                  main.css (base), interface.css (menus), menus.css (opções e GPS), hud.css
+server/                    back-end Spring Boot (pacote br.com.cargame: auth, garage, score, mp, config)
 assets/
   models/vehicles/chevette/chevette.glb      modelos otimizados usados pelo jogo
   models/vehicles/saveiro/saveiro.glb

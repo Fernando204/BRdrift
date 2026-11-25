@@ -1,0 +1,13 @@
+# só o necessário vai para o build da imagem
+.git
+.claude
+node_modules
+blender
+data
+docs
+tools
+test
+dist
+server/target
+server/data
+**/*.log
