@@ -23,13 +23,13 @@ public class RoomController {
     public record CreateRoom(String name, String password, String map) {}
 
     @GetMapping
-    public List<RoomService.RoomInfo> list(@CurrentUser Long userId) {
+    public List<RoomService.RoomInfo> list(@CurrentUser String userId) {
         return rooms.list(userId);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public RoomService.RoomInfo create(@CurrentUser Long userId, @RequestBody CreateRoom body) {
+    public RoomService.RoomInfo create(@CurrentUser String userId, @RequestBody CreateRoom body) {
         Room room = rooms.create(userId, body.name(), body.password(), body.map());
         return rooms.info(room, userId);
     }

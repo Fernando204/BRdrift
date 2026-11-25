@@ -7,7 +7,7 @@ import org.springframework.web.socket.WebSocketSession;
 
 /** Jogador conectado em uma sala. */
 public class Player {
-    private final Long userId;
+    private final String userId;
     private final String username;
     private final WebSocketSession session;   // já decorado para envio seguro entre threads
     private volatile Look look;
@@ -15,14 +15,14 @@ public class Player {
     private long windowStart;
     private int messagesInWindow;
 
-    public Player(Long userId, String username, WebSocketSession session, Look look) {
+    public Player(String userId, String username, WebSocketSession session, Look look) {
         this.userId = userId;
         this.username = username;
         this.session = session;
         this.look = look;
     }
 
-    public Long userId() { return userId; }
+    public String userId() { return userId; }
     public String username() { return username; }
     public WebSocketSession session() { return session; }
     public Look look() { return look; }

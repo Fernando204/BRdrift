@@ -41,31 +41,31 @@ public class GarageController {
     }
 
     @PostMapping("/garage/starter")
-    public Profile starter(@CurrentUser Long userId, @RequestBody CarRequest body) {
+    public Profile starter(@CurrentUser String userId, @RequestBody CarRequest body) {
         garage.chooseStarter(userId, body.carId());
         return profiles.profile(userId);
     }
 
     @PostMapping("/garage/select")
-    public Profile select(@CurrentUser Long userId, @RequestBody CarRequest body) {
+    public Profile select(@CurrentUser String userId, @RequestBody CarRequest body) {
         garage.select(userId, body.carId());
         return profiles.profile(userId);
     }
 
     @PostMapping("/shop/buy")
-    public Profile buy(@CurrentUser Long userId, @RequestBody CarRequest body) {
+    public Profile buy(@CurrentUser String userId, @RequestBody CarRequest body) {
         garage.buy(userId, body.carId());
         return profiles.profile(userId);
     }
 
     @PostMapping("/garage/paint")
-    public Result paint(@CurrentUser Long userId, @RequestBody PaintRequest body) {
+    public Result paint(@CurrentUser String userId, @RequestBody PaintRequest body) {
         long cost = garage.paint(userId, body.carId(), body.colors(), body.fullColor());
         return new Result(profiles.profile(userId), cost);
     }
 
     @PostMapping("/garage/suspension")
-    public Result suspension(@CurrentUser Long userId, @RequestBody SuspensionRequest body) {
+    public Result suspension(@CurrentUser String userId, @RequestBody SuspensionRequest body) {
         long cost = garage.suspension(userId, body.carId(), body.lowering());
         return new Result(profiles.profile(userId), cost);
     }

@@ -1,45 +1,48 @@
 package br.com.cargame.auth;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.Version;
+import br.com.cargame.garage.OwnedCar;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
-/** Conta do jogador: credenciais, moedas e recordes. */
-@Entity
-@Table(name = "user_account")
+/**
+ * Conta do jogador (coleção "users"): credenciais, moedas, recordes e a garagem.
+ * Os carros ficam dentro do próprio documento, então comprar, pintar ou mexer na suspensão
+ * grava um único documento de uma vez (atômico no MongoDB, sem transação).
+ */
+@Document("users")
 public class UserAccount {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
     /** Nome como o jogador digitou (exibido). */
-    @Column(nullable = false, length = 20)
     private String username;
 
-    /** Nome em minúsculas: garante que "Fulano" e "fulano" não coexistam. */
-    @Column(nullable = false, length = 20, unique = true)
+    /** Nome em minúsculas, com índice único: "Fulano" e "fulano" não coexistem. */
+    @Indexed(unique = true)
     private String usernameKey;
 
-    @Column(nullable = false, length = 72)
     private String passwordHash;
-
     private long coins;
     private String selectedCar;
+
+    @Indexed
     private long bestDrift;
     private long totalDriftPoints;
     private Instant lastDriftBankAt;
-
-    @Column(nullable = false)
     private Instant createdAt = Instant.now();
+
+    /** Carros da garagem, na ordem em que foram conseguidos. */
+    private List<OwnedCar> cars = new ArrayList<>();
 
     /** Bloqueio otimista: duas compras simultâneas não gastam o mesmo saldo. */
     @Version
-    private long version;
+    private Long version;
 
     protected UserAccount() {}
 
@@ -49,7 +52,7 @@ public class UserAccount {
         this.passwordHash = passwordHash;
     }
 
-    public Long getId() { return id; }
+    public String getId() { return id; }
     public String getUsername() { return username; }
     public String getPasswordHash() { return passwordHash; }
     public long getCoins() { return coins; }
@@ -62,4 +65,10 @@ public class UserAccount {
     public void setTotalDriftPoints(long totalDriftPoints) { this.totalDriftPoints = totalDriftPoints; }
     public Instant getLastDriftBankAt() { return lastDriftBankAt; }
     public void setLastDriftBankAt(Instant lastDriftBankAt) { this.lastDriftBankAt = lastDriftBankAt; }
+
+    public List<OwnedCar> getCars() { return cars; }
+
+    public Optional<OwnedCar> car(String carId) {
+        return cars.stream().filter(c -> c.getCarId().equals(carId)).findFirst();
+    }
 }

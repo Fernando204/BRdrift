@@ -32,7 +32,7 @@ public class GameSocketHandler extends TextWebSocketHandler {
     private final RoomService rooms;
     private final ProfileService profiles;
     private final ObjectMapper json;
-    private final Map<Long, Player> online = new ConcurrentHashMap<>();
+    private final Map<String, Player> online = new ConcurrentHashMap<>();
 
     public GameSocketHandler(RoomService rooms, ProfileService profiles, ObjectMapper json) {
         this.rooms = rooms;
@@ -42,7 +42,7 @@ public class GameSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession raw) {
-        Long userId = (Long) raw.getAttributes().get(SocketAuthInterceptor.USER_ATTR);
+        String userId = (String) raw.getAttributes().get(SocketAuthInterceptor.USER_ATTR);
         WebSocketSession session = new ConcurrentWebSocketSessionDecorator(raw, 5_000, 256 * 1024);
         Player player = new Player(userId, profiles.username(userId), session, profiles.selectedLook(userId));
         Player previous = online.put(userId, player);
@@ -55,7 +55,7 @@ public class GameSocketHandler extends TextWebSocketHandler {
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws IOException {
-        Player player = online.get((Long) session.getAttributes().get(SocketAuthInterceptor.USER_ATTR));
+        Player player = online.get((String) session.getAttributes().get(SocketAuthInterceptor.USER_ATTR));
         if (player == null || !sameSession(player, session)) return;   // conexão antiga, já substituída
         if (!player.allowMessage(MAX_MESSAGES_PER_SECOND)) return;
         JsonNode msg;
@@ -81,7 +81,7 @@ public class GameSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        Long userId = (Long) session.getAttributes().get(SocketAuthInterceptor.USER_ATTR);
+        String userId = (String) session.getAttributes().get(SocketAuthInterceptor.USER_ATTR);
         Player player = online.get(userId);
         if (player != null && sameSession(player, session)) {
             online.remove(userId);

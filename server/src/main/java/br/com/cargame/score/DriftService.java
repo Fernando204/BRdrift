@@ -8,7 +8,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Converte pontos de drift em moedas. O cliente calcula a pontuação; o servidor confere se ela é
@@ -27,8 +26,7 @@ public class DriftService {
     public record DriftResult(long coinsEarned, long coins, long bestDrift, boolean newRecord) {}
     public record Entry(String username, long bestDrift, long totalDriftPoints) {}
 
-    @Transactional
-    public DriftResult bank(Long userId, long points, long durationMs) {
+    public DriftResult bank(String userId, long points, long durationMs) {
         if (durationMs < 500 || durationMs > economy.maxDriftSeconds() * 1000L)
             throw ApiException.badRequest("invalid_drift", "Duração de drift inválida.");
         if (points <= 0 || points > durationMs / 1000.0 * economy.maxDriftPointsPerSecond())
@@ -45,10 +43,10 @@ public class DriftService {
         user.setTotalDriftPoints(user.getTotalDriftPoints() + points);
         if (record) user.setBestDrift(points);
         user.setLastDriftBankAt(now);
+        users.save(user);   // @Version: dois drifts registrados ao mesmo tempo não somam em dobro
         return new DriftResult(coins, user.getCoins(), user.getBestDrift(), record);
     }
 
-    @Transactional(readOnly = true)
     public List<Entry> leaderboard() {
         return users.findTop20ByBestDriftGreaterThanOrderByBestDriftDesc(0).stream()
                 .map(u -> new Entry(u.getUsername(), u.getBestDrift(), u.getTotalDriftPoints())).toList();

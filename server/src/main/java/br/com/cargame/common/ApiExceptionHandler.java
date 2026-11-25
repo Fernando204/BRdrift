@@ -4,7 +4,7 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -31,7 +31,7 @@ public class ApiExceptionHandler {
     }
 
     /** Duas compras ao mesmo tempo na mesma conta: só uma vale. */
-    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    @ExceptionHandler(OptimisticLockingFailureException.class)
     ResponseEntity<Map<String, String>> concurrent() {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "concurrent", "message", "Operação em andamento. Tente de novo."));
     }

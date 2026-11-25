@@ -52,7 +52,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public Profile me(@CurrentUser Long userId) {
+    public Profile me(@CurrentUser String userId) {
         return profiles.profile(userId);
     }
 }

@@ -78,3 +78,14 @@ test('no modo normal, um carro escorregando se estabiliza', () => {
     assert.ok(Math.abs(s.r) < 0.05, `guinada ${s.r}`);
   }
 });
+
+test('no modo drift, com a traseira escorregando, as rodas seguem o volante do jogador', () => {
+  for (const sign of [1, -1]) {
+    // carro deslizando e girando: comandos para os dois lados (fechar o drift e contra-esterçar)
+    for (const command of [1, -1]) {
+      const s = simulate(createController({ drift: true, lateral: 4 * sign, yaw: 0.9 * sign }), input(command), 30);
+      assert.equal(Math.sign(s.steer), command, `deriva ${sign}, volante ${command}`);
+      assert.ok(Math.abs(s.steer) > 0.17, `rodas só a ${(s.steer * 57.3).toFixed(0)}°`);
+    }
+  }
+});

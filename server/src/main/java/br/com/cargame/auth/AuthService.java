@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DuplicateKeyException;
 
 /** Criação de conta, login e sessões (token aleatório no cookie, hash no banco). */
 @Service
@@ -39,7 +39,6 @@ public class AuthService {
 
     public record Login(UserAccount user, String token) {}
 
-    @Transactional
     public Login register(String username, String password) {
         String name = username == null ? "" : username.trim();
         if (!USERNAME.matcher(name).matches())
@@ -47,11 +46,15 @@ public class AuthService {
         validatePassword(password);
         if (users.existsByUsernameKey(name.toLowerCase()))
             throw ApiException.conflict("username_taken", "Esse nome de usuário já está em uso.");
-        UserAccount user = users.save(new UserAccount(name, encoder.encode(password)));
+        UserAccount user;
+        try {
+            user = users.save(new UserAccount(name, encoder.encode(password)));
+        } catch (DuplicateKeyException e) {   // dois cadastros do mesmo nome ao mesmo tempo: o índice único decide
+            throw ApiException.conflict("username_taken", "Esse nome de usuário já está em uso.");
+        }
         return new Login(user, openSession(user.getId()));
     }
 
-    @Transactional
     public Login login(String username, String password) {
         String key = username == null ? "" : username.trim().toLowerCase();
         Optional<UserAccount> user = users.findByUsernameKey(key);
@@ -65,14 +68,14 @@ public class AuthService {
     }
 
     /** Usuário dono do token, se a sessão existir e não tiver expirado. */
-    public Optional<Long> resolve(String token) {
+    public Optional<String> resolve(String token) {
         if (token == null || token.isBlank()) return Optional.empty();
         return sessions.findById(hash(token))
                 .filter(s -> s.getExpiresAt().isAfter(Instant.now()))
                 .map(AuthSession::getUserId);
     }
 
-    private String openSession(Long userId) {
+    private String openSession(String userId) {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -95,9 +98,9 @@ public class AuthService {
         }
     }
 
-    /** Limpa sessões vencidas uma vez por hora. */
+    /** Limpa sessões vencidas uma vez por hora (o índice TTL do MongoDB também apaga sozinho). */
     @Scheduled(fixedDelay = 3_600_000)
     public void purgeExpired() {
-        sessions.deleteExpired(Instant.now());
+        sessions.deleteByExpiresAtBefore(Instant.now());
     }
 }

@@ -7,17 +7,14 @@ server:
       persistent: false
 
 spring:
-  datasource:
-    # banco em arquivo (server/data/cargame.mv.db); não precisa instalar nada.
-    # Em produção pode ser trocado por PostgreSQL com as variáveis SPRING_DATASOURCE_URL,
-    # SPRING_DATASOURCE_USERNAME e SPRING_DATASOURCE_PASSWORD (veja o README).
-    url: jdbc:h2:file:./data/cargame;AUTO_SERVER=TRUE
-    username: sa
-    password: ""
-  jpa:
-    hibernate:
-      ddl-auto: update
-    open-in-view: false
+  data:
+    mongodb:
+      # MongoDB local por padrão; em produção (Render) defina CARGAME_MONGODB_URI (nome próprio do jogo,
+      # para não usar por engano um MONGODB_URI de outro projeto) com a string do
+      # MongoDB Atlas, por exemplo mongodb+srv://usuario:senha@cluster.xxxxx.mongodb.net/cargame
+      uri: ${CARGAME_MONGODB_URI:mongodb://localhost:27017/cargame}
+      # cria os índices declarados nas classes (nome de usuário único, TTL das sessões, ranking)
+      auto-index-creation: true
 
 game:
   # pasta do jogo (index.html, dist/, assets/, src/styles/), relativa a server/

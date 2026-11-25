@@ -68,17 +68,28 @@ npm run dev
 
 ## Servidor
 
-Back-end em `server/` (Java 21, Spring Boot 3, Maven). Ele guarda contas e progresso num banco H2 em arquivo (`server/data/`), atende a API REST, o WebSocket do multiplayer e também serve o jogo (`index.html`, `dist/`, `assets/`), assim cookie e WebSocket ficam na mesma origem.
+Back-end em `server/` (Java 21, Spring Boot 3, Maven). Ele guarda contas e progresso no **MongoDB**, atende a API REST, o WebSocket do multiplayer e também serve o jogo (`index.html`, `dist/`, `assets/`), assim cookie e WebSocket ficam na mesma origem.
+
+É preciso um MongoDB rodando. Por padrão o servidor usa `mongodb://localhost:27017/cargame`; para outro endereço, defina a variável `CARGAME_MONGODB_URI`. Depois:
 
 ```powershell
 cd server; mvn spring-boot:run
 ```
 
-Depois acesse `http://localhost:8080`. Testes do servidor:
+e acesse `http://localhost:8080`. Os testes do servidor usam o MongoDB local, no banco `cargame_test` (apagado a cada teste):
 
 ```powershell
 cd server; mvn test
 ```
+
+**Banco de dados** (banco `cargame`):
+
+| Coleção | Conteúdo |
+|---|---|
+| `users` | conta (nome, hash da senha), moedas, recordes e a garagem: os carros ficam dentro do documento, cada um com as cores das peças e a altura |
+| `sessions` | sessões de login (só o hash do token do cookie); um índice TTL apaga as vencidas |
+
+Cada compra, pintura, ajuste de suspensão ou drift grava um único documento, então a operação é atômica sem transação. O campo `version` impede que duas requisições ao mesmo tempo gastem o mesmo saldo. Os índices (nome de usuário único, TTL e ranking) são criados sozinhos na primeira execução.
 
 ### Docker e Render
 
@@ -89,16 +100,18 @@ docker build -t drift-br .
 ```
 
 ```powershell
-docker run -p 8080:8080 -v drift-dados:/app/data drift-br
+docker run -p 8080:8080 -e CARGAME_MONGODB_URI=mongodb://host.docker.internal:27017/cargame drift-br
 ```
 
 Para publicar no [Render](https://render.com): envie o repositório ao GitHub e, no painel, use **New → Blueprint** (lê o `render.yaml`) ou **New → Web Service** com o runtime **Docker**. O servidor usa a porta que o Render passa em `PORT`, e o cookie de login sai como `Secure` atrás do HTTPS dele. O WebSocket funciona direto no mesmo endereço.
 
-**Dados:** no plano gratuito o disco do contêiner é apagado a cada deploy ou reinício, e com ele o banco H2 (contas e moedas). Para guardar os dados, escolha uma destas opções:
+**Banco:** o Render não oferece MongoDB, então use o [MongoDB Atlas](https://www.mongodb.com/atlas) (o plano M0 é gratuito):
 
-- **PostgreSQL** (o driver já vem na imagem): crie um banco no Render e configure no serviço
-  `SPRING_DATASOURCE_URL=jdbc:postgresql://<host>:5432/<banco>`, `SPRING_DATASOURCE_USERNAME` e `SPRING_DATASOURCE_PASSWORD`, com os dados da "Internal Database URL". As tabelas são criadas sozinhas.
-- **Disco persistente** (planos pagos): monte em `/app/data` (há um exemplo comentado no `render.yaml`).
+1. Crie um cluster M0, um usuário do banco e, em **Network Access**, libere o acesso (`0.0.0.0/0`, porque o Render não tem IP fixo no plano gratuito).
+2. Copie a string de conexão (**Connect → Drivers**) e acrescente o nome do banco: `mongodb+srv://usuario:senha@cluster.xxxxx.mongodb.net/cargame`.
+3. No Render, defina a variável `CARGAME_MONGODB_URI` com essa string (o Blueprint pede o valor ao criar o serviço).
+
+Os dados ficam no Atlas, então nada se perde a cada deploy.
 
 No plano gratuito o serviço também dorme após 15 minutos sem acesso, e o primeiro acesso depois disso demora cerca de um minuto.
 

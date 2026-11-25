@@ -6,22 +6,35 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import br.com.cargame.auth.AuthSessionRepository;
+import br.com.cargame.auth.UserAccount;
 import br.com.cargame.auth.UserAccountRepository;
 import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Fluxos principais da API: conta, sessão por cookie, carro inicial, loja, oficina e drift. */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:test;DB_CLOSE_DELAY=-1")
+// usa o MongoDB local (mongodb://localhost:27017), num banco separado só para os testes
+@SpringBootTest(properties = "spring.data.mongodb.uri=mongodb://localhost:27017/cargame_test")
 @AutoConfigureMockMvc
 class GameApiTest {
     @Autowired MockMvc mvc;
     @Autowired UserAccountRepository users;
+    @Autowired AuthSessionRepository sessions;
+
+    @BeforeEach
+    void limpaBanco() {   // apaga os documentos, mas mantém os índices (nome único, TTL)
+        users.deleteAll();
+        sessions.deleteAll();
+    }
 
     private Cookie register(String name) throws Exception {
         var res = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
@@ -121,5 +134,23 @@ class GameApiTest {
                         .content("{\"name\":\"Racha\",\"password\":\"1234\",\"map\":\"salto\"}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.isPrivate").value(true));
         mvc.perform(get("/api/rooms").cookie(c)).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value("global"));
+    }
+
+    @Test
+    void indiceUnicoBarraNomeRepetidoMesmoSemPassarPelaApi() {
+        users.save(new UserAccount("Duplo", "x"));
+        assertThrows(DuplicateKeyException.class, () -> users.save(new UserAccount("duplo", "y")));
+    }
+
+    @Test
+    void gravacaoConcorrenteNaoGastaOMesmoSaldoDuasVezes() throws Exception {
+        register("Piloto9");
+        giveCoins("Piloto9", 1000);
+        var a = users.findByUsernameKey("piloto9").orElseThrow();
+        var b = users.findByUsernameKey("piloto9").orElseThrow();
+        a.setCoins(a.getCoins() - 1000);
+        users.save(a);
+        b.setCoins(b.getCoins() - 1000);   // cópia desatualizada: o @Version recusa
+        assertThrows(OptimisticLockingFailureException.class, () -> users.save(b));
     }
 }

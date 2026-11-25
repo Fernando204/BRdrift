@@ -8,10 +8,9 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/catalog
     autoDeploy: true
-    # Para não perder contas e moedas a cada deploy, use um PostgreSQL
-    # (configure as variáveis SPRING_DATASOURCE_* no painel, veja o README)
-    # ou, num plano pago, um disco montado em /app/data:
-    # disk:
-    #   name: dados
-    #   mountPath: /app/data
-    #   sizeGB: 1
+    envVars:
+      # string de conexão do MongoDB (ex.: MongoDB Atlas, plano gratuito M0):
+      # mongodb+srv://usuario:senha@cluster.xxxxx.mongodb.net/cargame
+      # o Render pede o valor na criação; ele não fica no repositório
+      - key: CARGAME_MONGODB_URI
+        sync: false

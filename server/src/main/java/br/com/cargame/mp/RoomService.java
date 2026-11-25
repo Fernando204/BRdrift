@@ -33,18 +33,18 @@ public class RoomService {
 
     public record RoomInfo(String id, String name, String map, int players, int maxPlayers, boolean isPrivate, boolean mine) {}
 
-    public List<RoomInfo> list(Long viewerId) {
+    public List<RoomInfo> list(String viewerId) {
         return rooms.values().stream()
                 .sorted(Comparator.comparing((Room r) -> !r.id().equals(GLOBAL_ID)).thenComparing(Room::createdAt))
                 .map(r -> info(r, viewerId)).toList();
     }
 
-    public RoomInfo info(Room r, Long viewerId) {
+    public RoomInfo info(Room r, String viewerId) {
         return new RoomInfo(r.id(), r.name(), r.map(), r.size(), r.maxPlayers(), r.isPrivate(), viewerId != null && viewerId.equals(r.ownerId()));
     }
 
     /** Cria uma sala privada; cada jogador mantém no máximo uma (a anterior, se vazia, é substituída). */
-    public Room create(Long ownerId, String name, String password, String map) {
+    public Room create(String ownerId, String name, String password, String map) {
         String n = name == null ? "" : name.trim();
         if (n.length() < 3 || n.length() > 24) throw ApiException.badRequest("invalid_room", "O nome da sala deve ter de 3 a 24 caracteres.");
         if (password == null || password.length() < 3 || password.length() > 32)

@@ -1,38 +1,35 @@
 package br.com.cargame.auth;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
 import java.time.Instant;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
- * Sessão de login. O cookie guarda um token aleatório; aqui fica só o hash SHA-256 dele,
- * então um vazamento do banco não permite entrar na conta de ninguém.
+ * Sessão de login (coleção "sessions"). O cookie guarda um token aleatório; aqui fica só o hash
+ * SHA-256 dele, então um vazamento do banco não permite entrar na conta de ninguém.
+ * O índice TTL em expiresAt faz o próprio MongoDB apagar as sessões vencidas.
  */
-@Entity
-@Table(name = "auth_session", indexes = @Index(columnList = "userId"))
+@Document("sessions")
 public class AuthSession {
     @Id
-    @Column(length = 64)
     private String tokenHash;
 
-    @Column(nullable = false)
-    private Long userId;
+    @Indexed
+    private String userId;
 
-    @Column(nullable = false)
+    @Indexed(expireAfterSeconds = 0)
     private Instant expiresAt;
 
     protected AuthSession() {}
 
-    public AuthSession(String tokenHash, Long userId, Instant expiresAt) {
+    public AuthSession(String tokenHash, String userId, Instant expiresAt) {
         this.tokenHash = tokenHash;
         this.userId = userId;
         this.expiresAt = expiresAt;
     }
 
     public String getTokenHash() { return tokenHash; }
-    public Long getUserId() { return userId; }
+    public String getUserId() { return userId; }
     public Instant getExpiresAt() { return expiresAt; }
 }

@@ -12,12 +12,12 @@ public class Room {
     private final String map;
     private final int maxPlayers;
     private final String passwordHash;   // null na sala global
-    private final Long ownerId;
+    private final String ownerId;
     private final Instant createdAt = Instant.now();
     private volatile Instant emptySince = Instant.now();
-    private final Map<Long, Player> players = new ConcurrentHashMap<>();
+    private final Map<String, Player> players = new ConcurrentHashMap<>();
 
-    public Room(String id, String name, String map, int maxPlayers, String passwordHash, Long ownerId) {
+    public Room(String id, String name, String map, int maxPlayers, String passwordHash, String ownerId) {
         this.id = id;
         this.name = name;
         this.map = map;
@@ -31,7 +31,7 @@ public class Room {
     public String map() { return map; }
     public int maxPlayers() { return maxPlayers; }
     public String passwordHash() { return passwordHash; }
-    public Long ownerId() { return ownerId; }
+    public String ownerId() { return ownerId; }
     public boolean isPrivate() { return passwordHash != null; }
     public Instant createdAt() { return createdAt; }
     public Instant emptySince() { return emptySince; }
@@ -47,7 +47,7 @@ public class Room {
         }
     }
 
-    void remove(Long userId) {
+    void remove(String userId) {
         synchronized (players) {
             players.remove(userId);
             if (players.isEmpty()) emptySince = Instant.now();

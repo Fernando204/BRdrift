@@ -59,8 +59,14 @@ export class PhysicsSystem {
     // esterço: limitado com a velocidade; contra-esterço automático (forte no drift, leve no normal)
     const slipDen = Math.max(absLong, 1.5);
     const bodySlip = clamp(Math.atan2(vLat, Math.max(absLong, 2)), -0.8, 0.8);
-    let steer = -ctrl.steerInput * Math.min(0.6, 0.17 + 28 / (speed * speed + 30)) * (handbrake ? 0.65 : 1);
-    if (vLong > 3) steer += (drift ? 0.9 : 0.3) * bodySlip * Math.min(1, vLong / 8);
+    let steerLimit = Math.min(0.6, 0.17 + 28 / (speed * speed + 30));
+    // drift: com a traseira escorregando, o volante ganha curso proporcional à deriva (dá para
+    // contra-esterçar de verdade ou fechar mais o drift) e o contra-esterço automático só age com o
+    // volante solto, sumindo conforme o jogador esterça: quem manda nas rodas é o jogador
+    const userSteer = Math.abs(ctrl.steerInput);
+    if (drift && vLong > 3) steerLimit = Math.max(steerLimit, Math.min(0.55, Math.abs(bodySlip) * 1.1 + 0.12));
+    let steer = -ctrl.steerInput * steerLimit * (handbrake ? 0.65 : 1);
+    if (vLong > 3) steer += (drift ? 0.9 * (1 - userSteer) : 0.3) * bodySlip * Math.min(1, vLong / 8);
     steer = clamp(steer, -0.55, 0.55);
     K.steer = -steer;
 

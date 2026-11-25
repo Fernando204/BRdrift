@@ -20,7 +20,7 @@ public class ScoreController {
     public record DriftRequest(long points, long durationMs) {}
 
     @PostMapping("/score/drift")
-    public DriftService.DriftResult drift(@CurrentUser Long userId, @RequestBody DriftRequest body) {
+    public DriftService.DriftResult drift(@CurrentUser String userId, @RequestBody DriftRequest body) {
         return drifts.bank(userId, body.points(), body.durationMs());
     }
 

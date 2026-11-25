@@ -32,7 +32,13 @@ export class CameraController {
   #bindPointer(canvas) {
     let pointerId = -1, lastX = 0, lastY = 0;
     canvas.style.cursor = 'grab';
+    // o navegador não pode tratar o jogo como imagem: arrastar (Firefox oferece "definir como
+    // plano de fundo" ao soltar) nem abrir o menu de imagem no botão direito
+    canvas.draggable = false;
+    canvas.addEventListener('dragstart', e => e.preventDefault());
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
     canvas.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse') e.preventDefault();   // sem arrastar/selecionar nativo
       if (pointerId >= 0) return;
       pointerId = e.pointerId, lastX = e.clientX, lastY = e.clientY, this.dragging = true;
       canvas.setPointerCapture(e.pointerId);

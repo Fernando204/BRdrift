@@ -41,7 +41,7 @@ public class AuthInterceptor implements HandlerInterceptor, HandlerMethodArgumen
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
-        return parameter.hasParameterAnnotation(CurrentUser.class) && parameter.getParameterType() == Long.class;
+        return parameter.hasParameterAnnotation(CurrentUser.class) && parameter.getParameterType() == String.class;
     }
 
     @Override
