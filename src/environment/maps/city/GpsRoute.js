@@ -48,6 +48,11 @@ export class GpsRoute {
     parent.add(this.line, this.marker);
   }
 
+  /** O marcador e a linha se movem: continuam com matrizes atualizadas a cada quadro (o resto da cidade é estático). */
+  unfreeze() {
+    for (const root of [this.line, this.marker]) root.traverse(o => { o.matrixAutoUpdate = o.matrixWorldAutoUpdate = true; });
+  }
+
   get hasDestination() {
     return !!this.destination;
   }

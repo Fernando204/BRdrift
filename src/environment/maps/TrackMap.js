@@ -3,7 +3,7 @@ import {
   CylinderGeometry, ConeGeometry, BoxGeometry, InstancedMesh, CatmullRomCurve3,
 } from 'three';
 import { createCanvasTexture } from '../textures.js';
-import { disposeObject3D, storage } from '../../utils/Helpers.js';
+import { disposeObject3D, storage, freezeStatic } from '../../utils/Helpers.js';
 import { formatLapTime } from '../../utils/MathUtils.js';
 import { STORAGE_KEYS } from '../../utils/Constants.js';
 
@@ -39,6 +39,7 @@ export class TrackMap {
     this.#buildGate();
     this.#buildTrees();
     this.#buildMinimapPath();
+    freezeStatic(this.group);   // pista, portal e árvores não se movem
 
     this.best = +storage.get(STORAGE_KEYS.bestLap, 0) || 0;
     this.resetLaps();

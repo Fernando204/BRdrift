@@ -34,3 +34,16 @@ export function disposeObject3D(root) {
   }
   root.removeFromParent();
 }
+
+/**
+ * Congela as matrizes de um cenário estático: calcula uma vez e desliga o recálculo por quadro
+ * (o Three.js deixa até de percorrer esses filhos em updateMatrixWorld). Use só em objetos que não se movem.
+ */
+export function freezeStatic(root) {
+  root.updateMatrixWorld(true);
+  root.traverse(o => {
+    if (o === root) return;
+    o.matrixAutoUpdate = false;
+    o.matrixWorldAutoUpdate = false;
+  });
+}

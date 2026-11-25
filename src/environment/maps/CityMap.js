@@ -5,7 +5,7 @@ import {
 import { createCanvasTexture, noiseFill } from '../textures.js';
 import { RoadNetwork } from './city/RoadNetwork.js';
 import { GpsRoute } from './city/GpsRoute.js';
-import { disposeObject3D } from '../../utils/Helpers.js';
+import { disposeObject3D, freezeStatic } from '../../utils/Helpers.js';
 import { seededRandom } from '../../utils/MathUtils.js';
 import { ChunkGrid } from './city/ChunkGrid.js';
 import { ShadowCasters } from './city/ShadowCasters.js';
@@ -53,6 +53,8 @@ export class CityMap {
     this.gps = new GpsRoute(this.network, this.names, this.group);
     this.streetLabel = '';
     this.streetTimer = 0;
+    freezeStatic(this.group);   // ruas, prédios e árvores não se movem (a rota e o marcador do GPS são atualizados à parte)
+    this.gps.unfreeze();
   }
 
   // ------------------------------------------------------------------ ruas e calçadas
