@@ -24,6 +24,7 @@ export class Menu {
     $('o-nt').onclick = this.#segment(v => actions.setNight(v === 1));
     $('o-map').onclick = this.#segment(v => actions.selectMap(v === 1 ? 'salto' : 'circuito'));
     $('o-quality').onclick = this.#segment(v => actions.setGraphicsQuality(['low', 'medium', 'high'][v]));
+    $('o-diag').onclick = this.#segment(v => actions.setDiagnostics(v === 1));
     $('o-shadow').onclick = this.#segment(v => actions.setShadows(v === 1));
     $('o-distance').oninput = e => actions.setRenderDistance(+e.target.value);
     $('o-vol').oninput = e => actions.setVolume(e.target.value / 100);
@@ -128,6 +129,7 @@ export class Menu {
     toggle('o-gb', v => (v === 1) === s.manualGearbox);
     toggle('o-nt', v => (v === 1) === s.night);
     toggle('o-quality', v => v === ['low', 'medium', 'high'].indexOf(s.graphicsQuality));
+    toggle('o-diag', v => (v === 1) === s.diagnostics);
     toggle('o-shadow', v => (v === 1) === s.shadows);
     $('o-distance').value = s.renderDistance;
     $('o-distance-value').value = s.renderDistance + ' m';

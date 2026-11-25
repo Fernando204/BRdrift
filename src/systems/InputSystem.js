@@ -25,6 +25,7 @@ export const ACTIONS = [
   ['acao', 'Porta / entrar / sair', ['KeyG', '']],
   ['partida', 'Dar partida / desligar', ['KeyI', '']],
   ['modo', 'Modo normal / drift', ['KeyB', '']],
+  ['diag', 'Painel de desempenho', ['F3', '']],
 ];
 
 const KEY_NAMES = {
@@ -32,7 +33,7 @@ const KEY_NAMES = {
   ShiftLeft: 'Shift', ControlLeft: 'Ctrl', AltLeft: 'Alt', Enter: 'Enter', Tab: 'Tab', Backquote: '`',
   Minus: '-', Equal: '=', Comma: ',', Period: '.', Slash: '/', Semicolon: ';', BracketLeft: '[', BracketRight: ']', Backslash: '\\',
 };
-const PREVENT_DEFAULT = ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'];
+const PREVENT_DEFAULT = ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'F3'];
 const normalizeCode = code => (code === 'ShiftRight' ? 'ShiftLeft' : code === 'ControlRight' ? 'ControlLeft' : code);
 
 /**

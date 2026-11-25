@@ -17,6 +17,7 @@ export class Settings {
     this.driftMode = !!saved.drift;
     this.graphicsQuality = ['low', 'medium', 'high'].includes(saved.gfx) ? saved.gfx : 'medium';
     this.shadows = typeof saved.shadow === 'boolean' ? saved.shadow : true;
+    this.diagnostics = !!saved.diag;
     this.renderDistance = typeof saved.renderDistance === 'number'
       ? clamp(saved.renderDistance, 250, 1200)
       : 700;
@@ -33,6 +34,7 @@ export class Settings {
       gfx: this.graphicsQuality,
       shadow: this.shadows,
       renderDistance: this.renderDistance,
+      diag: this.diagnostics,
     });
   }
 }

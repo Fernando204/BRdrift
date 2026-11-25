@@ -20,6 +20,9 @@ import { TouchControls } from '../ui/TouchControls.js';
 import { VEHICLES } from '../vehicles/vehicles.config.js';
 import { VehicleCustomization } from '../vehicles/VehicleCustomization.js';
 import { GAME } from '../utils/Constants.js';
+import { PerformanceMonitor } from './PerformanceMonitor.js';
+import { Benchmark } from './Benchmark.js';
+import { DiagnosticsPanel } from '../ui/DiagnosticsPanel.js';
 import { $ } from '../utils/Helpers.js';
 
 /**
@@ -59,6 +62,10 @@ export class Game {
     this.input = new InputSystem();
     this.audio = new AudioSystem(this.settings.volume);
     this.hud = new HUD();
+    this.monitor = new PerformanceMonitor(this.renderer.renderer);
+    this.diagnostics = new DiagnosticsPanel(this.monitor);
+    this.diagnostics.setVisible(this.settings.diagnostics);
+    this.benchmark = Benchmark.fromUrl();
     this.loop = new GameLoop((dt, now) => this.frame(dt, now));
 
     const message = (text, seconds) => this.hud.message(text, seconds);
@@ -77,6 +84,7 @@ export class Game {
       setColor: index => { this.setColor(index); this.menu.refresh(); this.saveSettings(); },
       setVolume: v => { this.settings.volume = v; this.audio.setVolume(v); this.saveSettings(); },
       setGraphicsQuality: quality => { this.settings.graphicsQuality = quality; this.renderer.setQuality(quality); this.lighting.setQuality(quality); this.menu.refresh(); this.saveSettings(); },
+      setDiagnostics: visible => { this.settings.diagnostics = visible; this.diagnostics.setVisible(visible); this.menu.refresh(); this.saveSettings(); },
       setShadows: enabled => { this.settings.shadows = enabled; this.renderer.renderer.shadowMap.enabled = enabled; this.lighting.setShadows(enabled); this.menu.refresh(); this.saveSettings(); },
       setRenderDistance: distance => { this.settings.renderDistance = distance; this.environment.setRenderDistance(distance); this.cameraController.setRenderDistance(distance); this.menu.refresh(); this.saveSettings(); },
     });
@@ -153,6 +161,7 @@ export class Game {
     this.player.sitIn(this.vehicle);
     this.menu.enableStart();
     this.menu.setLoading('Modelo carregado.');
+    if (this.benchmark) await this.benchmark.start(this);
   }
 
   #bindInput() {
@@ -197,6 +206,7 @@ export class Game {
     input.on('man', () => ctrl().toggleGearbox());
     input.on('acao', () => this.primaryAction());
     input.on('partida', () => this.toggleIgnition());
+    input.on('diag', () => { this.settings.diagnostics = this.diagnostics.toggle(); this.saveSettings(); });
     input.on('modo', () => this.setDriveMode(!this.settings.driftMode, true));
     input.on('edit', () => { if (!this.player.inVehicle) this.setEditMode(!this.editMode); });
   }
@@ -405,15 +415,21 @@ export class Game {
   }
 
   frame(dt, now) {
-    const map = this.world.map, ctrl = this.controller, vehicle = this.vehicle;
+    const map = this.world.map, ctrl = this.controller, vehicle = this.vehicle, monitor = this.monitor, bench = this.benchmark;
     if (!map) return;
+    if (bench?.running) dt = bench.fixedDt;
+    monitor.frameStart(now);
     const exploring = !this.player.inVehicle && this.started && !this.paused && !this.gpsMap.open;
     this.vehicleCustomization.setActive(exploring);
     this.player.firstPerson.setEnabled(exploring && !this.vehicleCustomization.open);
     $('editMode').hidden = !exploring;
 
     if (this.playing && !this.gpsMap.open) {
+      monitor.begin('physics');
       this.#stepPhysics(dt, map);
+      if (bench?.running) bench.afterPhysics();
+      monitor.end('physics');
+      monitor.begin('world');
       if (!this.player.inVehicle) this.player.update(dt, this.input, map, ctrl.state, this.vehicles.config);
       ctrl.updateEngine(dt);
       this.hud.setActions(this.#availableActions());
@@ -452,7 +468,14 @@ export class Game {
     const focus = this.focus;
     this.environment.followCamera(this.cameraController.camera);
     this.lighting.follow(focus.x, focus.z);
+    if (this.playing && !this.gpsMap.open) monitor.end('world');
+    monitor.begin('render');
+    monitor.beginGpu();
     this.renderer.render(this.scene, this.cameraController.camera);
+    monitor.endGpu();
+    monitor.end('render');
+    monitor.frameEnd();
+    bench?.endFrame();
   }
 
   /** Física em passos fixos (~8,5 ms) para ficar estável em qualquer taxa de quadros. */
