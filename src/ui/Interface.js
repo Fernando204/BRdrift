@@ -108,7 +108,10 @@ export class Interface {
 
   // ------------------------------------------------------------------ carro inicial
   #renderStarter() {
-    const cards = Object.entries(VEHICLES).map(([id, cfg]) => this.#carCard(id, cfg, `<button class="btn-primary wide" data-starter="${id}">Escolher ${esc(cfg.name)}</button>`));
+    // só os carros marcados como iniciais no catálogo do servidor (os outros, como o Mustang, ficam na loja)
+    const starters = (this.game.session.catalog?.cars || []).filter(c => c.starter && VEHICLES[c.id]).map(c => c.id);
+    const ids = starters.length ? starters : ['chevette', 'saveiro'];
+    const cards = ids.map(id => this.#carCard(id, VEHICLES[id], `<button class="btn-primary wide" data-starter="${id}">Escolher ${esc(VEHICLES[id].name)}</button>`));
     $('starter-cards').innerHTML = cards.join('');
     $('starter-cards').onclick = async e => {
       const b = e.target.closest('button[data-starter]');

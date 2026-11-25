@@ -11,7 +11,8 @@
     "optimize:chevette": "node tools/optimize_glb.mjs blender/export/chevette.glb assets/models/vehicles/chevette/chevette.glb",
     "embed": "python tools/embed_assets.py",
     "city": "python tools/gerar_cidade.py",
-    "assets": "npm run optimize:chevette && npm run embed"
+    "assets": "npm run optimize:chevette && npm run optimize:mustang && npm run embed",
+    "optimize:mustang": "node tools/optimize_glb.mjs blender/export/mustang.glb assets/models/vehicles/mustang/mustang.glb"
   },
   "dependencies": {
     "three": "0.170.0"

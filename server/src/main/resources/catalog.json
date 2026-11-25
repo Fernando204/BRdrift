@@ -18,7 +18,8 @@
         { "id": "Saia_Dianteira", "name": "Saia dianteira" },
         { "id": "Para_Choque_Dianteiro", "name": "Para-choque dianteiro", "defaultColor": "#242424" },
         { "id": "Para_Choque_Traseiro", "name": "Para-choque traseiro", "defaultColor": "#242424" }
-      ]
+      ],
+      "starter": true
     },
     {
       "id": "saveiro",
@@ -37,6 +38,25 @@
         { "id": "Para_Choque_Traseiro", "name": "Para-choque traseiro" },
         { "id": "Retrovisor_Esquerdo_Carcaca", "name": "Retrovisor esquerdo" },
         { "id": "Retrovisor_Direito_Carcaca", "name": "Retrovisor direito" }
+      ],
+      "starter": true
+    },
+    {
+      "id": "mustang",
+      "name": "Mustang 1965",
+      "price": 1000,
+      "starter": false,
+      "defaultColor": "#8a1722",
+      "maxDropCm": 6,
+      "parts": [
+        { "id": "Capo", "name": "Capô" },
+        { "id": "Cabine", "name": "Teto e colunas" },
+        { "id": "Carroceria", "name": "Carroceria" },
+        { "id": "Porta_Esquerda", "name": "Porta do motorista" },
+        { "id": "Porta_Direita", "name": "Porta do passageiro" },
+        { "id": "Paralama_Esquerdo", "name": "Para-lama dianteiro esquerdo" },
+        { "id": "Paralama_Direito", "name": "Para-lama dianteiro direito" },
+        { "id": "Tampa_Porta_Malas", "name": "Tampa do porta-malas" }
       ]
     }
   ]

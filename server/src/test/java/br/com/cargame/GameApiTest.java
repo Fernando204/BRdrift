@@ -138,6 +138,23 @@ class GameApiTest {
     }
 
     @Test
+    void mustangNaoPodeSerOCarroInicialSoComprado() throws Exception {
+        Cookie c = register("Piloto10");
+        mvc.perform(post("/api/garage/starter").cookie(c).contentType(MediaType.APPLICATION_JSON).content("{\"carId\":\"mustang\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("not_starter"));
+        mvc.perform(post("/api/garage/starter").cookie(c).contentType(MediaType.APPLICATION_JSON).content("{\"carId\":\"chevette\"}"))
+                .andExpect(status().isOk());
+        giveCoins("Piloto10", 1000);
+        mvc.perform(post("/api/shop/buy").cookie(c).contentType(MediaType.APPLICATION_JSON).content("{\"carId\":\"mustang\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.coins").value(0))
+                .andExpect(jsonPath("$.cars.length()").value(2));
+        mvc.perform(get("/api/catalog")).andExpect(jsonPath("$.cars[2].id").value("mustang"))
+                .andExpect(jsonPath("$.cars[2].starter").value(false));
+    }
+
+    @Test
     void indiceUnicoBarraNomeRepetidoMesmoSemPassarPelaApi() {
         users.save(new UserAccount("Duplo", "x"));
         assertThrows(DuplicateKeyException.class, () -> users.save(new UserAccount("duplo", "y")));

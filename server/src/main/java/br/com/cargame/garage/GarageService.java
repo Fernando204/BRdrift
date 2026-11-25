@@ -33,7 +33,8 @@ public class GarageService {
     // no meio, o @Version recusa (409) e nada é cobrado em dobro.
 
     public void chooseStarter(String userId, String carId) {
-        catalog.get(carId);
+        if (!catalog.get(carId).starter())
+            throw ApiException.badRequest("not_starter", "Esse carro não pode ser o inicial: compre-o na loja.");
         UserAccount user = profiles.user(userId);
         if (!user.getCars().isEmpty()) throw ApiException.conflict("starter_taken", "O carro inicial já foi escolhido.");
         user.getCars().add(new OwnedCar(carId));
