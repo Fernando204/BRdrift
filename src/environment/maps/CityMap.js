@@ -7,6 +7,8 @@ import { RoadNetwork } from './city/RoadNetwork.js';
 import { GpsRoute } from './city/GpsRoute.js';
 import { disposeObject3D } from '../../utils/Helpers.js';
 import { seededRandom } from '../../utils/MathUtils.js';
+import { ChunkGrid } from './city/ChunkGrid.js';
+import { ShadowCasters } from './city/ShadowCasters.js';
 
 const WALLS = [
   ['#efe4cf', '#f3d9b8', '#e6ecef', '#f2e6a8', '#d9e8cf', '#f0d0c8', '#e2d4ef', '#fafafa'],   // casas
@@ -14,7 +16,8 @@ const WALLS = [
   ['#d8d8d4', '#c4ccd4', '#e6dccb', '#b8c0c8', '#d4c4b0', '#a8b4bc', '#e4e4e0', '#c8bca8'],   // prédios
 ];
 const ROOF_TILES = ['#9c3d2b', '#a84a32', '#8a3426', '#7a4a3a', '#6b6b6b', '#9a5a3a', '#b05a3a', '#5e4a42'];
-const BLOCK = 800;        // tamanho do bloco de instâncias (culling por bloco, inclusive nas sombras)
+const CHUNK = 400;           // lado de cada região (m): culling por distância/frustum e LOD por região
+const SHADOW_RADIUS = 100;   // m: cobre a área de sombra (±35 m) mais a sombra dos prédios mais altos
 const OBSTACLE_CELL = 32;
 const MINIMAP_SIZE = 2048;
 const key = (i, j) => i * 100003 + j;
@@ -40,6 +43,7 @@ export class CityMap {
     this.start = D.inicio;
     this.group = new Group();
     this.rand = seededRandom(20240611);
+    this.chunks = new ChunkGrid(CHUNK, this.group);
 
     const roads = D.ruas.map(r => ({ c: r[0], n: r[1], P: r.slice(2).map(v => v / 10) }));
     this.network = new RoadNetwork(roads, D.larguras);
@@ -79,23 +83,54 @@ export class CityMap {
     const floorMaterial = (map, offset, extra) => new MeshStandardMaterial(Object.assign({
       map, roughness: 0.92, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: offset, polygonOffsetUnits: offset,
     }, extra || {}));
-    if (buffers.sidewalk) this.#addFlatMesh(buffers.sidewalk, floorMaterial(sidewalk, -1), 4);
-    if (buffers.asphalt) this.#addFlatMesh(buffers.asphalt, floorMaterial(asphalt, -2), 6);
-    if (buffers.dirt) this.#addFlatMesh(buffers.dirt, floorMaterial(dirt, -2), 6);
-    if (lines.p.length) this.#addFlatMesh(lines, floorMaterial(dashes, -3, { transparent: true, alphaTest: 0.5, roughness: 0.6 }), 1);
+    if (buffers.sidewalk) this.#addFlatMeshes(buffers.sidewalk, floorMaterial(sidewalk, -1), 4);
+    if (buffers.asphalt) this.#addFlatMeshes(buffers.asphalt, floorMaterial(asphalt, -2), 6);
+    if (buffers.dirt) this.#addFlatMeshes(buffers.dirt, floorMaterial(dirt, -2), 6);
+    if (lines.p.length) this.#addFlatMeshes(lines, floorMaterial(dashes, -3, { transparent: true, alphaTest: 0.5, roughness: 0.6 }), 1, true);
   }
 
-  /** Malha plana com normais para cima e UV no espaço do mundo (texturas sem emendas entre ruas). */
-  #addFlatMesh(B, material, uvScale) {
-    const g = new BufferGeometry(), n = B.p.length / 3, uv = new Float32Array(n * 2), normals = new Float32Array(n * 3);
-    for (let k = 0; k < n; k++) uv[k * 2] = B.p[k * 3] / uvScale, uv[k * 2 + 1] = B.p[k * 3 + 2] / uvScale, normals[k * 3 + 1] = 1;
-    g.setAttribute('position', new Float32BufferAttribute(B.p, 3));
-    g.setAttribute('normal', new BufferAttribute(normals, 3));
-    g.setAttribute('uv', B.uv ? new Float32BufferAttribute(B.uv, 2) : new BufferAttribute(uv, 2));
-    g.setIndex(B.i);
-    const mesh = new Mesh(g, material);
-    mesh.receiveShadow = true;
-    this.group.add(mesh);
+  /**
+   * Malhas planas (normais para cima, UV no espaço do mundo, sem emendas entre ruas), repartidas por
+   * chunk: cada triângulo vai para a região do seu centro. Detalhes finos (faixas) somem no LOD distante.
+   */
+  #addFlatMeshes(B, material, uvScale, detail = false) {
+    const P = B.p, I = B.i, n = P.length / 3;
+    const byChunk = new Map();
+    for (let t = 0; t < I.length; t += 3) {
+      const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+      const chunk = this.chunks.at((P[a] + P[b] + P[c]) / 3, (P[a + 2] + P[b + 2] + P[c + 2]) / 3);
+      const list = byChunk.get(chunk);
+      list ? list.push(I[t], I[t + 1], I[t + 2]) : byChunk.set(chunk, [I[t], I[t + 1], I[t + 2]]);
+    }
+    const remap = new Int32Array(n), stamp = new Int32Array(n).fill(-1);
+    let pass = 0;
+    for (const [chunk, tris] of byChunk) {
+      pass++;
+      const pos = [], uv = [], idx = new Uint32Array(tris.length);
+      for (let t = 0; t < tris.length; t++) {
+        const v = tris[t];
+        if (stamp[v] !== pass) {
+          stamp[v] = pass;
+          remap[v] = pos.length / 3;
+          pos.push(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]);
+          if (B.uv) uv.push(B.uv[v * 2], B.uv[v * 2 + 1]);
+          else uv.push(P[v * 3] / uvScale, P[v * 3 + 2] / uvScale);
+        }
+        idx[t] = remap[v];
+      }
+      const count = pos.length / 3, normals = new Float32Array(count * 3);
+      for (let k = 0; k < count; k++) normals[k * 3 + 1] = 1;
+      const g = new BufferGeometry();
+      g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+      g.setAttribute('normal', new BufferAttribute(normals, 3));
+      g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+      g.setIndex(new BufferAttribute(count > 65535 ? idx : Uint16Array.from(idx), 1));
+      g.computeBoundingSphere();
+      const mesh = new Mesh(g, material);
+      mesh.receiveShadow = true;
+      chunk.group.add(mesh);
+      if (detail) chunk.detail.push(mesh);
+    }
   }
 
   // ------------------------------------------------------------------ construções e árvores
@@ -103,7 +138,8 @@ export class CityMap {
     const bodyGeo = new BoxGeometry(1, 1, 1); bodyGeo.translate(0, 0.5, 0);
     const roofGeo = new ConeGeometry(Math.SQRT1_2, 1, 4); roofGeo.rotateY(Math.PI / 4); roofGeo.translate(0, 0.5, 0);
     const slabGeo = new BoxGeometry(1, 1, 1); slabGeo.translate(0, 0.5, 0);
-    const trunkGeo = new CylinderGeometry(0.25, 0.35, 3, 6), crownGeo = new ConeGeometry(2.2, 7, 8);
+    // tronco sem tampas: o topo fica dentro da copa e a base no chão (as tampas nunca aparecem)
+    const trunkGeo = new CylinderGeometry(0.25, 0.35, 3, 6, 1, true), crownGeo = new ConeGeometry(2.2, 7, 8);
     this.windowUniform = { value: 0 };
     const kinds = {
       body: [bodyGeo, createWindowMaterial(this.windowUniform)],
@@ -113,11 +149,11 @@ export class CityMap {
       crown: [crownGeo, new MeshStandardMaterial({ color: 16777215, roughness: 0.9 })],
     };
 
-    const blocks = new Map();
-    const blockAt = (x, z) => {
-      const k = key(Math.floor(x / BLOCK), Math.floor(z / BLOCK));
-      if (!blocks.has(k)) blocks.set(k, { body: [], roof: [], slab: [], trunk: [], crown: [] });
-      return blocks.get(k);
+    const perChunk = new Map();     // chunk -> { tipo: [[matriz, cor], ...], trees: [[tronco, copa, cor], ...] }
+    const listFor = (x, z) => {
+      const chunk = this.chunks.at(x, z);
+      if (!perChunk.has(chunk)) perChunk.set(chunk, { body: [], roof: [], slab: [], trunk: [], crown: [], trees: [] });
+      return perChunk.get(chunk);
     };
     const m = new Matrix4(), q = new Quaternion(), up = new Vector3(0, 1, 0), pos = new Vector3(), scale = new Vector3(), color = new Color();
     const noRotation = new Quaternion();
@@ -127,7 +163,7 @@ export class CityMap {
     const B = D.construcoes;
     for (let k = 0; k < B.length; k += 8) {
       const x = B[k] / 10, z = B[k + 1] / 10, a = B[k + 2] / 10 * Math.PI / 180, w = B[k + 3] / 10, d = B[k + 4] / 10, h = B[k + 5] / 10, type = B[k + 6], c = B[k + 7];
-      const bl = blockAt(x, z);
+      const bl = listFor(x, z);
       q.setFromAxisAngle(up, -a);
       bl.body.push([m.compose(pos.set(x, 0, z), q, scale.set(w, h, d)).clone(), WALLS[type][c]]);
       if (type === 0) bl.roof.push([m.compose(pos.set(x, h, z), q, scale.set(w * 1.1, 1.5 + this.rand() * 0.8, d * 1.1)).clone(), ROOF_TILES[c]]);
@@ -144,32 +180,65 @@ export class CityMap {
     this.treeGrid = new Map();
     const A = D.arvores;
     for (let k = 0; k < A.length; k += 3) {
-      const x = A[k] / 10, z = A[k + 1] / 10, s = A[k + 2] / 100, bl = blockAt(x, z);
+      const x = A[k] / 10, z = A[k + 1] / 10, s = A[k + 2] / 100;
       scale.set(s, s, s);
-      bl.trunk.push([m.compose(pos.set(x, 1.5 * s, z), noRotation, scale).clone(), null]);
-      bl.crown.push([m.compose(pos.set(x, 5.5 * s, z), noRotation, scale).clone(), color.setHSL(0.27 + this.rand() * 0.08, 0.45, 0.18 + this.rand() * 0.12).getHex()]);
+      const trunk = m.compose(pos.set(x, 1.5 * s, z), noRotation, scale).clone();
+      const crown = m.compose(pos.set(x, 5.5 * s, z), noRotation, scale).clone();
+      listFor(x, z).trees.push([trunk, crown, color.setHSL(0.27 + this.rand() * 0.08, 0.45, 0.18 + this.rand() * 0.12).getHex()]);
       const hk = key(Math.floor(x / OBSTACLE_CELL), Math.floor(z / OBSTACLE_CELL)), t = [x, z, 0.4 * s];
       this.treeGrid.has(hk) ? this.treeGrid.get(hk).push(t) : this.treeGrid.set(hk, [t]);
     }
 
-    // uma malha instanciada por tipo e por bloco; geometrias e materiais são compartilhados
-    for (const bl of blocks.values()) {
+    // Uma malha instanciada por tipo e por chunk; geometrias e materiais são compartilhados.
+    // Árvores em ordem embaralhada (fixa): "menos densidade" no LOD distante mostra um subconjunto espalhado.
+    const shadowData = Object.fromEntries(Object.keys(kinds).map(n => [n, { matrices: [], x: [], z: [] }]));
+    for (const [chunk, bl] of perChunk) {
+      const trees = bl.trees;
+      for (let i = trees.length - 1; i > 0; i--) { const j = Math.floor(this.rand() * (i + 1)); [trees[i], trees[j]] = [trees[j], trees[i]]; }
+      for (const [trunk, crown, c] of trees) bl.trunk.push([trunk, null]), bl.crown.push([crown, c]);
       for (const [name, [geo, mat]] of Object.entries(kinds)) {
         const list = bl[name];
         if (!list.length) continue;
         const mesh = new InstancedMesh(geo, mat, list.length);
+        const sd = shadowData[name];
         list.forEach(([mm, c], i) => {
           mesh.setMatrixAt(i, mm);
           if (c != null) mesh.setColorAt(i, color.set(c));
+          for (let e = 0; e < 16; e++) sd.matrices.push(mm.elements[e]);
+          sd.x.push(mm.elements[12]);
+          sd.z.push(mm.elements[14]);
         });
-        mesh.castShadow = true;
+        mesh.castShadow = false;                 // a sombra vem das ShadowCasters (só o que está perto)
         mesh.receiveShadow = name !== 'trunk';
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         mesh.computeBoundingSphere();
-        this.group.add(mesh);
+        chunk.group.add(mesh);
+        if (name === 'trunk') chunk.detail.push(mesh);
+        if (name === 'crown') chunk.thinned.push([mesh, list.length]);
       }
     }
+    const casterKinds = {};
+    for (const [name, [geometry, material]] of Object.entries(kinds)) {
+      const sd = shadowData[name];
+      casterKinds[name] = { geometry, material, matrices: new Float32Array(sd.matrices), x: new Float32Array(sd.x), z: new Float32Array(sd.z) };
+    }
+    this.shadowCasters = new ShadowCasters(casterKinds, this.group, SHADOW_RADIUS);
+  }
+
+  /**
+   * Chamado a cada quadro: visibilidade/LOD das regiões (pela posição da câmera) e objetos que
+   * projetam sombra (pela posição do jogador, que é o centro da área de sombra do sol).
+   */
+  updateView(camera, focus) {
+    this.chunks.update(camera.position.x, camera.position.z);
+    this.shadowCasters.update(focus.x, focus.z);
+  }
+
+  /** Distâncias de visão e de LOD, densidade distante e sombras (opções gráficas). */
+  setDetail({ viewDistance, lodDistance, farDensity, shadows }) {
+    this.chunks.configure({ viewDistance, lodDistance, farDensity });
+    if (shadows !== undefined) this.shadowCasters.setEnabled(shadows);
   }
 
   // ------------------------------------------------------------------ minimapa (pré-desenhado uma vez)

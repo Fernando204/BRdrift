@@ -19,7 +19,7 @@ import { GpsMap } from '../ui/GpsMap.js';
 import { TouchControls } from '../ui/TouchControls.js';
 import { VEHICLES } from '../vehicles/vehicles.config.js';
 import { VehicleCustomization } from '../vehicles/VehicleCustomization.js';
-import { GAME } from '../utils/Constants.js';
+import { GAME, GRAPHICS_PRESETS } from '../utils/Constants.js';
 import { PerformanceMonitor } from './PerformanceMonitor.js';
 import { Benchmark } from './Benchmark.js';
 import { DiagnosticsPanel } from '../ui/DiagnosticsPanel.js';
@@ -83,10 +83,10 @@ export class Game {
       setNight: night => { this.setNight(night); this.menu.refresh(); this.saveSettings(); },
       setColor: index => { this.setColor(index); this.menu.refresh(); this.saveSettings(); },
       setVolume: v => { this.settings.volume = v; this.audio.setVolume(v); this.saveSettings(); },
-      setGraphicsQuality: quality => { this.settings.graphicsQuality = quality; this.renderer.setQuality(quality); this.lighting.setQuality(quality); this.menu.refresh(); this.saveSettings(); },
+      setGraphicsQuality: quality => { this.settings.graphicsQuality = quality; this.renderer.setQuality(quality); this.lighting.setQuality(quality); this.applyWorldDetail(); this.menu.refresh(); this.saveSettings(); },
       setDiagnostics: visible => { this.settings.diagnostics = visible; this.diagnostics.setVisible(visible); this.menu.refresh(); this.saveSettings(); },
-      setShadows: enabled => { this.settings.shadows = enabled; this.renderer.renderer.shadowMap.enabled = enabled; this.lighting.setShadows(enabled); this.menu.refresh(); this.saveSettings(); },
-      setRenderDistance: distance => { this.settings.renderDistance = distance; this.environment.setRenderDistance(distance); this.cameraController.setRenderDistance(distance); this.menu.refresh(); this.saveSettings(); },
+      setShadows: enabled => { this.settings.shadows = enabled; this.renderer.renderer.shadowMap.enabled = enabled; this.lighting.setShadows(enabled); this.applyWorldDetail(); this.menu.refresh(); this.saveSettings(); },
+      setRenderDistance: distance => { this.settings.renderDistance = distance; this.environment.setRenderDistance(distance); this.cameraController.setRenderDistance(distance); this.applyWorldDetail(); this.menu.refresh(); this.saveSettings(); },
     });
     this.gpsMap = new GpsMap(this);
     this.vehicleCustomization = new VehicleCustomization({
@@ -284,6 +284,7 @@ export class Game {
     try {
       const map = await this.world.setMap(id);
       this.environment.setRenderDistance(this.settings.renderDistance);
+      this.applyWorldDetail();
       this.settings.mapId = id;
       map.onLap = text => {
         this.hud.message(text);
@@ -319,6 +320,7 @@ export class Game {
     this.environment.setNight(night);
     this.lighting.setNight(night);
     this.world.map?.setNight(night);
+    this.applyWorldDetail();
     if (night && this.controller && !this.controller.lightsMode) this.controller.lightsMode = 1;   // acende os faróis
   }
 
@@ -330,6 +332,20 @@ export class Game {
     const n = this.vehicleColors.length;
     this.settings.colorIndex = ((index % n) + n) % n;
     this.vehicle?.setColor(this.vehicleColors[this.settings.colorIndex]);
+  }
+
+  /**
+   * Distância de visão (o que está além da neblina total não é desenhado), LOD e sombras do mapa,
+   * conforme as opções gráficas.
+   */
+  applyWorldDetail() {
+    const preset = GRAPHICS_PRESETS[this.settings.graphicsQuality] || GRAPHICS_PRESETS.medium;
+    this.world.map?.setDetail?.({
+      viewDistance: this.environment.scene.fog.far,
+      lodDistance: preset.lodDistance,
+      farDensity: preset.farDensity,
+      shadows: this.settings.shadows,
+    });
   }
 
   saveSettings() {
@@ -467,6 +483,7 @@ export class Game {
     this.vehicleCustomization.update(dt);
     const focus = this.focus;
     this.environment.followCamera(this.cameraController.camera);
+    map.updateView?.(this.cameraController.camera, focus);
     this.lighting.follow(focus.x, focus.z);
     if (this.playing && !this.gpsMap.open) monitor.end('world');
     monitor.begin('render');

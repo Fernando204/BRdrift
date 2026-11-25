@@ -12,8 +12,7 @@ export class Lighting {
     Object.assign(this.sun.shadow.camera, { left: -35, right: 35, top: 35, bottom: -35, near: 1, far: 260 });
     this.sun.shadow.bias = -4e-4;
     this.sun.shadow.normalBias = 0.03;
-    this.sun.layers.enable(RENDER_LAYERS.VEHICLE);
-    for (const layer of Object.values(RENDER_LAYERS)) this.sun.shadow.camera.layers.enable(layer);
+    this.sun.layers.enable(RENDER_LAYERS.VEHICLE);   // ilumina também a passada do carro
     scene.add(this.sun, this.sun.target);
   }
 

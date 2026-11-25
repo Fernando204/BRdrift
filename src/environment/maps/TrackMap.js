@@ -108,7 +108,7 @@ export class TrackMap {
 
   #buildTrees() {
     this.trees = [];   // [x, z, raio]
-    const trunks = new InstancedMesh(new CylinderGeometry(0.25, 0.35, 3, 6), new MeshStandardMaterial({ color: 5913378, roughness: 1 }), TREE_COUNT);
+    const trunks = new InstancedMesh(new CylinderGeometry(0.25, 0.35, 3, 6, 1, true), new MeshStandardMaterial({ color: 5913378, roughness: 1 }), TREE_COUNT);
     const crowns = new InstancedMesh(new ConeGeometry(2.2, 7, 8), new MeshStandardMaterial({ color: 16777215, roughness: 0.9 }), TREE_COUNT);
     const m = new Matrix4(), q = new Quaternion(), pos = new Vector3(), scale = new Vector3(), color = new Color();
     for (let t = 0; t < TREE_COUNT;) {

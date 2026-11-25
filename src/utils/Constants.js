@@ -28,3 +28,15 @@ export const GRAVITY = 9.81;
  *   Assim, a "transmission" das lentes do carro reprocessa só o carro, e não a cidade inteira.
  */
 export const RENDER_LAYERS = { WORLD: 0, SHADOW_ONLY: 1, VEHICLE: 2 };
+
+/**
+ * Predefinições de qualidade gráfica.
+ * pixelRatio: limite da resolução interna; shadowMapSize: resolução do mapa de sombra do sol;
+ * lodDistance: além dela, cada região esconde detalhes pequenos (troncos, faixas) e as árvores usam farDensity;
+ * renderDistance: distância de visão sugerida ao escolher a predefinição (ajustável depois).
+ */
+export const GRAPHICS_PRESETS = {
+  low: { pixelRatio: 0.75, shadowMapSize: 512, lodDistance: 220, farDensity: 0.5, renderDistance: 450 },
+  medium: { pixelRatio: 1.25, shadowMapSize: 1024, lodDistance: 320, farDensity: 1, renderDistance: 700 },
+  high: { pixelRatio: 2, shadowMapSize: 2048, lodDistance: 480, farDensity: 1, renderDistance: 1000 },
+};
