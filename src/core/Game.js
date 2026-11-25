@@ -805,7 +805,7 @@ export class Game {
       this.skidMarks.update(ctrl.state, map);
       this.hud.setTimerText(map.timerText(now, focus));
       if (map.currentLap !== undefined && map.currentLap !== this.shownLap) this.shownLap = map.currentLap, this.hud.setLap(this.shownLap);
-      this.hud.draw(ctrl, map, focus);
+      this.hud.draw(ctrl, map, focus, this.remote);
       this.hud.setDrift(this.drift);
       const a = this.audioContext;
       a.engineLevel = ctrl.engineSound, a.throttle = ctrl.throttle, a.engineOn = ctrl.engineOn, a.skid = this.skidMarks.intensity, a.sound = this.vehicles.config.sound;
@@ -821,6 +821,8 @@ export class Game {
     }
     this.smoke.update(dt);
     this.remote.update(dt);
+    // mapa do GPS aberto: redesenha 10x por segundo para os outros jogadores andarem nele
+    if (this.gpsMap.open && this.remote.count && (this.gpsRedraw = (this.gpsRedraw || 0) - dt) <= 0) this.gpsRedraw = 0.1, this.gpsMap.draw();
     if (this.mp.inRoom && ctrl) this.mp.sendState(now, ctrl.state, this.#stateFlags(ctrl));
 
     const c = this.cameraContext;

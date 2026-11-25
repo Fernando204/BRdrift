@@ -1,3 +1,4 @@
+import { drawPlayers } from '../../ui/PlayerMarkers.js';
 import {
   Group, Mesh, BufferGeometry, Float32BufferAttribute, BufferAttribute, MeshStandardMaterial, DoubleSide,
   BoxGeometry, ConeGeometry, CylinderGeometry, InstancedMesh, Matrix4, Quaternion, Vector3, Color,
@@ -350,7 +351,7 @@ export class CityMap {
   }
 
   /** Minimapa circular girando com o jogador (~520 m de diâmetro), com rota e destino do GPS. */
-  drawMinimap(g, canvas, focus) {
+  drawMinimap(g, canvas, focus, remote) {
     const W = canvas.width, k = this.miniScale, f = W / 520 / k, s = W / 520, M = this.half;
     g.clearRect(0, 0, W, W);
     g.save();
@@ -371,13 +372,15 @@ export class CityMap {
       g.fillStyle = '#b44dff', g.strokeStyle = '#fff', g.lineWidth = 2;
       g.beginPath(), g.arc(dx, dz, 6, 0, 7), g.fill(), g.stroke();
     }
+    // outros jogadores (no mesmo referencial girado); os de longe ficam presos na borda
+    drawPlayers(g, remote, mp.fn, { size: 7, radius: W / 2 - 8 });
     g.restore();
     g.fillStyle = '#ff4d3a';
     g.beginPath(), g.moveTo(W / 2, W / 2 - 8), g.lineTo(W / 2 + 5.5, W / 2 + 6), g.lineTo(W / 2 - 5.5, W / 2 + 6), g.closePath(), g.fill();
   }
 
   /** Mapa em tela cheia (vetorial), usado pelo GPS. */
-  drawFullMap(g, project, scale, focus) {
+  drawFullMap(g, project, scale, focus, remote) {
     const out = [0, 0], P = (x, z) => project(x, z, out);
     g.lineCap = g.lineJoin = 'round';
     for (const r of this.network.roads.slice().sort((a, b) => b.c - a.c)) {
@@ -398,6 +401,7 @@ export class CityMap {
       g.beginPath(), g.arc(x, y - 16, 9, Math.PI * 0.85, Math.PI * 0.15), g.lineTo(x, y), g.closePath(), g.fill(), g.stroke();
       g.fillStyle = '#fff', g.beginPath(), g.arc(x, y - 16, 3.5, 0, 7), g.fill();
     }
+    drawPlayers(g, remote, P, { size: 10, labels: true });
     const [cx, cy] = P(focus.x, focus.z), fx = Math.sin(focus.h), fz = Math.cos(focus.h);
     g.fillStyle = '#ff4d3a', g.strokeStyle = '#fff', g.lineWidth = 2;
     g.beginPath();

@@ -30,7 +30,7 @@ export class RemotePlayers {
   async add({ id, name, look }) {
     if (this.players.has(id)) return;
     const p = {
-      id, name, look, vehicle: null, carId: null, loading: null, snapshots: [],
+      id, name, look, vehicle: null, carId: null, loading: null, snapshots: [], color: playerColor(id),
       proxy: { state: { x: 0, z: 0, h: 0, vf: 0, steer: 0, pitch: 0, roll: 0, brake: false, reverse: false }, lightsMode: 0, indicatorLeftOn: false, indicatorRightOn: false },
       label: document.createElement('div'),
     };
@@ -59,6 +59,11 @@ export class RemotePlayers {
     p.look = look;
     if (look.carId !== p.carId) this.#loadCar(p);
     else p.vehicle?.applyLook(look);
+  }
+
+  /** Jogadores com posição conhecida, para os mapas: fn(estado {x, z, h}, nome, cor). */
+  forEachOnMap(fn) {
+    for (const p of this.players.values()) if (p.snapshots.length) fn(p.proxy.state, p.name, p.color);
   }
 
   pushState(id, values, flags) {
@@ -157,4 +162,11 @@ export class RemotePlayers {
       }
     }
   }
+}
+
+/** Cor fixa e bem visível para cada jogador (a partir do id), evitando o vermelho do próprio jogador. */
+function playerColor(id) {
+  let h = 0;
+  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `hsl(${40 + (h % 280)}, 85%, 58%)`;
 }

@@ -153,8 +153,8 @@ export class HUD {
       "<button data-acao='" + id + "'" + (id ? '' : ' disabled') + '>' + text + (key && key !== '—' ? ' <kbd>' + key + '</kbd>' : '') + '</button>').join('');
   }
 
-  draw(ctrl, map, focus) {
+  draw(ctrl, map, focus, remote) {
     this.gauges.draw(ctrl);
-    map.drawMinimap(this.minimapCtx, this.minimap, focus);
+    map.drawMinimap(this.minimapCtx, this.minimap, focus, remote);
   }
 }

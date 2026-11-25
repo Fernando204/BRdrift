@@ -53,7 +53,7 @@ export class GpsMap {
     g.setTransform(r, 0, 0, r, 0, 0);
     g.fillStyle = '#1d2a1f';
     g.fillRect(0, 0, W, H);
-    this.game.world.map.drawFullMap(g, (x, z, out) => (out[0] = W / 2 + (x - v.x) * v.s, out[1] = H / 2 + (z - v.z) * v.s, out), v.s, this.game.focus);
+    this.game.world.map.drawFullMap(g, (x, z, out) => (out[0] = W / 2 + (x - v.x) * v.s, out[1] = H / 2 + (z - v.z) * v.s, out), v.s, this.game.focus, this.game.remote);
   }
 
   #zoom(f, mx, my) {

@@ -1,3 +1,4 @@
+import { drawPlayers } from '../../ui/PlayerMarkers.js';
 import {
   Group, Vector3, Color, Matrix4, Quaternion, Mesh, BufferGeometry, Float32BufferAttribute, MeshStandardMaterial,
   CylinderGeometry, ConeGeometry, BoxGeometry, InstancedMesh, CatmullRomCurve3,
@@ -246,7 +247,7 @@ export class TrackMap {
   }
 
   // ------------------------------------------------------------------ minimapa
-  drawMinimap(g, canvas, focus) {
+  drawMinimap(g, canvas, focus, remote) {
     const W = canvas.width;
     if (this.mini.size !== W) {
       const b = this.miniBounds, scale = (W - 20) / Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
@@ -263,6 +264,9 @@ export class TrackMap {
     g.lineWidth = 5;
     g.strokeStyle = 'rgba(255,255,255,.75)';
     g.stroke(this.mini.path);
+    const out = this.miniOut || (this.miniOut = [0, 0]);
+    this.miniProject ||= (x, z) => (out[0] = (x - this.miniBounds.minX) * this.mini.scale + 10, out[1] = (z - this.miniBounds.minZ) * this.mini.scale + 10, out);
+    drawPlayers(g, remote, this.miniProject, { size: 6 });
     g.fillStyle = '#ff4d3a';
     g.beginPath();
     g.arc((focus.x - b.minX) * s + 10, (focus.z - b.minZ) * s + 10, 4.5, 0, 7);
