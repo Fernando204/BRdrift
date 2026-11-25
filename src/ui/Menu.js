@@ -25,12 +25,26 @@ export class Menu {
     $('o-dm').onclick = this.#segment(v => actions.setDriveMode(v === 1));
     $('o-nt').onclick = this.#segment(v => actions.setNight(v === 1));
     $('o-map').onclick = this.#segment(v => actions.selectMap(v === 1 ? 'salto' : 'circuito'));
+    // um botão por carro registrado em vehicles.config.js
+    const cars = $('o-car');
+    game.vehicles.available.forEach(({ id, name }, i) => {
+      const b = document.createElement('button');
+      b.dataset.v = i;
+      b.dataset.id = id;
+      b.textContent = name;
+      cars.appendChild(b);
+    });
+    cars.onclick = e => {
+      const b = e.target.closest('button');
+      if (b) actions.selectVehicle(b.dataset.id);
+    };
     $('o-quality').onclick = this.#segment(v => actions.setGraphicsQuality(['low', 'medium', 'high'][v]));
     $('o-diag').onclick = this.#segment(v => actions.setDiagnostics(v === 1));
     $('o-shadow').onclick = this.#segment(v => actions.setShadowQuality(SHADOW_LEVELS[v]));
     $('o-res').oninput = e => actions.setResolutionScale(+e.target.value / 100);
     $('o-distance').oninput = e => actions.setRenderDistance(+e.target.value);
     $('o-vol').oninput = e => actions.setVolume(e.target.value / 100);
+    $('o-low').oninput = e => actions.setLowering(e.target.value / 100);
     $('ctlList').onclick = e => {
       const b = e.target.closest('.kbtn');
       if (!b) return;
@@ -123,6 +137,13 @@ export class Menu {
     }).join('')).join('');
   }
 
+  /** Controle de rebaixamento: posição do carro atual e altura em cm. */
+  refreshLowering() {
+    const g = this.game;
+    $('o-low').value = Math.round((g.settings.lowering[g.vehicleId] ?? 0) * 100);
+    $('o-low-value').value = g.loweringCm ? '−' + g.loweringCm + ' cm' : 'Original';
+  }
+
   /** Atualiza o estado visual das opções. */
   refresh() {
     const s = this.game.settings, toggle = (id, on) => document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('on', on(+b.dataset.v)));
@@ -138,8 +159,11 @@ export class Menu {
     $('o-res-value').value = Math.round(s.resolutionScale * 100) + '%';
     $('o-distance').value = s.renderDistance;
     $('o-distance-value').value = s.renderDistance + ' m';
+    document.querySelectorAll('#o-car button').forEach(b => b.classList.toggle('on', b.dataset.id === this.game.vehicleId));
     const colors = this.game.vehicleColors, swatches = $('o-col');
-    if (!swatches.children.length) {
+    if (swatches.dataset.vehicle !== this.game.vehicleId) {   // paleta do carro escolhido
+      swatches.replaceChildren();
+      swatches.dataset.vehicle = this.game.vehicleId;
       colors.forEach((c, i) => {
         const b = document.createElement('button');
         b.style.background = c;
@@ -149,5 +173,6 @@ export class Menu {
     }
     [...swatches.children].forEach((b, i) => b.classList.toggle('on', i === s.colorIndex));
     $('o-vol').value = Math.round(s.volume * 100);
+    this.refreshLowering();
   }
 }

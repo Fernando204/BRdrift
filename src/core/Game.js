@@ -35,8 +35,9 @@ export class Game {
     this.paused = false;
     this.editMode = true;
     this.pausedAt = 0;
-    this.vehicleId = GAME.defaultVehicle;
+    this.vehicleId = GAME.defaultVehicle;     // trocado pelo salvo nas opções, logo abaixo
     this.physicsInput = { accel: false, brake: false, handbrake: false, steer: 0 };   // reaproveitado a cada passo
+    this.physicsAccumulator = 0;
     this.shownLap = 0;
     this.exploringShown = null;
     this.keyLabelsVersion = 0;                  // muda quando as teclas são reconfiguradas (textos das ações)
@@ -45,7 +46,9 @@ export class Game {
     this.cameraContext = { menuOpen: true, vehicleState: ORIGIN, vehicleModel: null, cockpitOffset: null, onFoot: false, playerBody: null };
     this.audioContext = { engineLevel: 0, throttle: 0, engineOn: false, skid: 0, sound: null };
 
-    this.settings = new Settings(this.vehicleColors.length);
+    this.settings = new Settings(Math.min(...Object.values(VEHICLES).map(v => v.colors.length)));
+    if (VEHICLES[this.settings.vehicleId]) this.vehicleId = this.settings.vehicleId;
+    this.settings.vehicleId = this.vehicleId;
     this.assets = new AssetManager();
     this.renderer = new Renderer();
     this.environment = new Environment(this.renderer.renderer);
@@ -78,6 +81,7 @@ export class Game {
       restart: () => this.restart(),
       pause: () => this.pause(),
       selectMap: id => this.selectMap(id),
+      selectVehicle: id => this.selectVehicle(id),
       setGearbox: manual => { this.settings.manualGearbox = manual; if (this.controller) this.controller.manual = manual; this.menu.refresh(); this.saveSettings(); },
       setDriveMode: drift => this.setDriveMode(drift, false),
       setNight: night => { this.setNight(night); this.menu.refresh(); this.saveSettings(); },
@@ -86,6 +90,7 @@ export class Game {
       setGraphicsQuality: quality => this.setGraphicsPreset(quality),
       setShadowQuality: quality => this.updateGraphics({ shadowQuality: quality }),
       setResolutionScale: scale => this.updateGraphics({ resolutionScale: scale }),
+      setLowering: fraction => { this.setLowering(fraction); this.saveSettings(); },
       setDiagnostics: visible => { this.settings.diagnostics = visible; this.diagnostics.setVisible(visible); this.menu.refresh(); this.saveSettings(); },
       setRenderDistance: distance => this.updateGraphics({ renderDistance: distance }),
     });
@@ -151,19 +156,62 @@ export class Game {
       console.error(err);
       return;
     }
-    const ctrl = this.controller;
+    this.#setupVehicle(null);
+    this.menu.enableStart();
+    this.menu.setLoading('Modelo carregado.');
+    if (this.benchmark) await this.benchmark.start(this);
+  }
+
+  /** Liga o carro recém-carregado ao jogo (câmbio, mensagens, cor, marcas de pneu, posição, banco). */
+  #setupVehicle(keep) {
+    const ctrl = this.controller, cfg = this.vehicles.config;
     ctrl.manual = this.settings.manualGearbox;
     ctrl.onMessage = (text, seconds) => this.hud.message(text, seconds);
     ctrl.onBlink = on => this.audio.playBlink(on);
     ctrl.setDriftMode(this.settings.driftMode);
     if (this.environment.night && !ctrl.lightsMode) ctrl.lightsMode = 1;
     this.setColor(this.settings.colorIndex);
-    this.#spawnVehicle(false);
-    this.player.sitIn(this.vehicle);
+    this.setLowering(this.settings.lowering[this.vehicleId] ?? 0);
+    this.skidMarks.setWheelPoints(cfg.tireContacts);
+    if (keep) {
+      Object.assign(ctrl.state, keep);
+      ctrl.resetMotion();
+      this.cameraController.heading = keep.h;
+    } else {
+      this.#spawnVehicle(false);
+    }
+    if (this.player.inVehicle) this.player.sitIn(this.vehicle);
     this.prewarmShaders();
-    this.menu.enableStart();
-    this.menu.setLoading('Modelo carregado.');
-    if (this.benchmark) await this.benchmark.start(this);
+  }
+
+  /**
+   * Troca de carro (menu). O novo modelo é carregado sob demanda; o anterior é descartado e liberado
+   * da memória. O carro novo aparece no mesmo lugar e, se o jogador estava dentro, ele continua sentado.
+   */
+  async selectVehicle(id) {
+    if (!VEHICLES[id] || (id === this.vehicleId && this.vehicle) || this.loadingVehicle) return;
+    this.loadingVehicle = true;
+    const previousText = $('ld').textContent, st = this.controller?.state;
+    const keep = st ? { x: st.x, z: st.z, h: st.h } : null;
+    this.menu.setLoading('Carregando ' + VEHICLES[id].name + '\u2026');
+    try {
+      this.player.character.root.removeFromParent();   // o personagem não pode ser descartado junto com o carro antigo
+      await this.vehicles.spawn(id);
+      this.vehicleId = id;
+      this.settings.vehicleId = id;
+      this.#setupVehicle(keep);
+      if (!this.player.inVehicle) this.player.character.standIn(this.scene, this.player.body.x, this.player.body.z, this.player.body.h);
+      this.saveSettings();
+      this.menu.refresh();
+      this.menu.setLoading(VEHICLES[id].name + ' pronto.');
+    } catch (err) {
+      console.error(err);
+      this.menu.setLoading('Erro ao carregar o modelo 3D.');
+      if (this.vehicle && this.player.inVehicle) this.player.sitIn(this.vehicle);
+    } finally {
+      this.loadingVehicle = false;
+      if (!this.vehicle) this.menu.setLoading(previousText);
+    }
   }
 
   #bindInput() {
@@ -329,6 +377,20 @@ export class Game {
 
   toggleNight() {
     this.setNight(!this.settings.night);
+  }
+
+  /** Rebaixamento do carro atual: fração de 0 (original) a 1 (máximo permitido para o carro). */
+  setLowering(fraction) {
+    this.settings.lowering[this.vehicleId] = Math.min(Math.max(fraction, 0), 1);
+    const max = VEHICLES[this.vehicleId].suspension?.maxDrop ?? 0;
+    this.vehicle?.setRideHeight(this.settings.lowering[this.vehicleId] * max);
+    this.menu?.refreshLowering?.();
+  }
+
+  /** Rebaixamento atual em centímetros (para o menu). */
+  get loweringCm() {
+    const max = VEHICLES[this.vehicleId].suspension?.maxDrop ?? 0;
+    return Math.round((this.settings.lowering[this.vehicleId] ?? 0) * max * 100);
   }
 
   setColor(index) {
@@ -557,8 +619,11 @@ export class Game {
     inp.brake = driving && input.isDown('brake');
     inp.handbrake = !driving || input.isDown('hb');
     inp.steer = driving ? (input.isDown('right') ? 1 : 0) - (input.isDown('left') ? 1 : 0) : 0;
-    const steps = Math.ceil(dt / GAME.physicsStep);
-    for (let i = 0; i < steps; i++) PhysicsSystem.step(ctrl, inp, map, dt / steps);
+    this.physicsAccumulator += dt;
+    while (this.physicsAccumulator >= GAME.physicsStep) {
+      PhysicsSystem.step(ctrl, inp, map, GAME.physicsStep);
+      this.physicsAccumulator -= GAME.physicsStep;
+    }
   }
 }
 

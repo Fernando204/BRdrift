@@ -56,10 +56,15 @@ export class SkidMarks {
   constructor(scene, wheelPoints, smoke) {
     this.asphalt = new MarkBuffer(scene, 3e3, [0.02, 0.02, 0.025]);
     this.dirt = new MarkBuffer(scene, 2e3, [0.17, 0.115, 0.06]);
-    this.wheelPoints = wheelPoints;
     this.smoke = smoke;
-    this.trails = wheelPoints.map(() => ({ on: false, buffer: null, lx: 0, lz: 0, rx: 0, rz: 0, alpha: 0, x: 0, z: 0 }));
+    this.setWheelPoints(wheelPoints);
     this.intensity = 0;   // 0..6, usado pelo som de pneu cantando
+  }
+
+  /** Pontos de contato dos pneus do carro atual (muda ao trocar de carro). */
+  setWheelPoints(wheelPoints) {
+    this.wheelPoints = wheelPoints;
+    this.trails = wheelPoints.map(() => ({ on: false, buffer: null, lx: 0, lz: 0, rx: 0, rz: 0, alpha: 0, x: 0, z: 0 }));
   }
 
   /** Chamado a cada quadro com o estado do carro (slipFront/slipRear = quanto cada eixo está escorregando). */

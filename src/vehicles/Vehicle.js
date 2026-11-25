@@ -39,6 +39,7 @@ export class Vehicle {
     for (const [slot, name] of Object.entries(cfg.wheels)) {
       const wheel = scene.getObjectByName(name), pivot = new Group();
       pivot.position.copy(wheel.position);
+      pivot.userData.baseY = wheel.position.y;     // altura original do eixo (para o rebaixamento)
       wheel.position.set(0, 0, 0);
       scene.add(pivot);
       pivot.add(wheel);
@@ -167,6 +168,19 @@ export class Vehicle {
       this.model.add(light, light.target);
       this.headlights.push(light);
     }
+  }
+
+  /**
+   * Rebaixamento: desce o modelo inteiro (carroceria, interior, faróis, motorista, câmera de cockpit)
+   * e sobe os eixos na mesma medida, para as rodas continuarem apoiadas no chão.
+   * @param drop metros, limitado a config.suspension.maxDrop
+   */
+  setRideHeight(drop) {
+    const max = this.config.suspension?.maxDrop ?? 0;
+    this.rideDrop = Math.min(Math.max(drop, 0), max);
+    this.model.position.y = -this.rideDrop;
+    for (const w of Object.values(this.wheels)) w.pivot.position.y = w.pivot.userData.baseY + this.rideDrop;
+    this.root.updateMatrixWorld(true);
   }
 
   setColor(hex) {

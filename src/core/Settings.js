@@ -14,6 +14,12 @@ export class Settings {
     this.colorIndex = Number.isInteger(saved.pi) && saved.pi >= 0 && saved.pi < colorCount ? saved.pi : 0;
     this.volume = typeof saved.vol === 'number' ? clamp(saved.vol, 0, 1) : 0.7;
     this.mapId = saved.mapa ? 'salto' : 'circuito';
+    this.vehicleId = typeof saved.car === 'string' ? saved.car : null;   // validado pelo Game
+    // rebaixamento por carro, de 0 (original) a 1 (máximo do carro)
+    this.lowering = {};
+    if (saved.low && typeof saved.low === 'object') {
+      for (const [id, v] of Object.entries(saved.low)) if (typeof v === 'number') this.lowering[id] = clamp(v, 0, 1);
+    }
     this.driftMode = !!saved.drift;
     this.graphicsQuality = ['low', 'medium', 'high'].includes(saved.gfx) ? saved.gfx : 'medium';
     // sombras: desligadas ou qualidade própria (antes só havia ligado/desligado em "shadow")
@@ -38,6 +44,8 @@ export class Settings {
       pi: this.colorIndex,
       vol: this.volume,
       mapa: this.mapId === 'salto' ? 1 : 0,
+      car: this.vehicleId,
+      low: this.lowering,
       drift: this.driftMode ? 1 : 0,
       gfx: this.graphicsQuality,
       shadow: this.shadows,

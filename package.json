@@ -7,6 +7,7 @@
   "scripts": {
     "build": "esbuild src/main.js --bundle --format=iife --target=es2022 --minify --sourcemap --legal-comments=eof --outfile=dist/game.js",
     "dev": "esbuild src/main.js --bundle --format=iife --target=es2022 --sourcemap --outfile=dist/game.js --watch --servedir=. --serve=8765",
+    "test": "node --test",
     "optimize:chevette": "node tools/optimize_glb.mjs blender/export/chevette.glb assets/models/vehicles/chevette/chevette.glb",
     "embed": "python tools/embed_assets.py",
     "city": "python tools/gerar_cidade.py",

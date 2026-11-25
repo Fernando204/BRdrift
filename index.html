@@ -16,6 +16,7 @@
     <h1>Corrida no Circuito</h1>
     <p class="sub">Dê voltas na pista, derrape e bata o seu recorde.</p>
     <p id="rot">📱 Gire o celular para a horizontal para jogar melhor.</p>
+    <div class="row"><span>Carro</span><div class="seg" id="o-car"></div></div>
     <div class="row"><span>Mapa</span><div class="seg" id="o-map"><button data-v="0">Circuito</button><button data-v="1">Salto de Pirapora</button></div></div>
     <p class="hint" id="osm" hidden>Ruas reais de Salto de Pirapora · © colaboradores do OpenStreetMap. Casas e prédios são genéricos.</p>
     <p id="ld">Carregando modelo 3D…</p>
@@ -36,6 +37,7 @@
     <div class="row"><span>Direção</span><div class="seg" id="o-dm"><button data-v="0">Normal</button><button data-v="1">Drift</button></div></div>
     <div class="row"><span>Horário</span><div class="seg" id="o-nt"><button data-v="0">Dia</button><button data-v="1">Noite</button></div></div>
     <div class="row"><span>Cor do carro</span><div class="sw" id="o-col"></div></div>
+    <div class="row graphic-row"><label for="o-low">Rebaixamento</label><span class="distance-control"><input id="o-low" type="range" min="0" max="100" step="5"><output id="o-low-value" for="o-low">Original</output></span></div>
     <div class="row"><span>Volume</span><input id="o-vol" type="range" min="0" max="100"></div>
     <button class="btn" data-scr="main">Voltar</button>
   </section>

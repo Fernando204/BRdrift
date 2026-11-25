@@ -1,6 +1,6 @@
-# Chevette SL — jogo de carro 3D
+# Chevette SL e Saveiro — jogo de carro 3D
 
-Jogo de direção em Three.js com um Chevrolet Chevette SL modelado no Blender, dois mapas (um circuito e as ruas reais de Salto de Pirapora/SP com GPS), personagem que entra e sai do carro, partida no motor, câmbio manual/automático e modos de condução normal (com TC/ESC) e drift.
+Jogo de direção em Three.js com dois carros modelados no Blender (Chevrolet Chevette SL e VW Saveiro G7 Robust, escolhidos em Menu → Carro), dois mapas (um circuito e as ruas reais de Salto de Pirapora/SP com GPS), personagem que entra e sai do carro, partida no motor, câmbio manual/automático e modos de condução normal (com TC/ESC) e drift.
 
 Em **Menu → Opções**, ajuste a qualidade gráfica, ative ou desative sombras e controle a distância de renderização. As preferências são salvas no navegador.
 
@@ -100,11 +100,13 @@ src/
   utils/                   constantes, matemática, helpers (DOM, storage, dispose)
   styles/                  main.css (base), menus.css (menu e GPS), hud.css (painel e toque)
 assets/
-  models/vehicles/chevette/chevette.glb      modelo otimizado usado pelo jogo
+  models/vehicles/chevette/chevette.glb      modelos otimizados usados pelo jogo
+  models/vehicles/saveiro/saveiro.glb
   maps/salto_de_pirapora/salto_de_pirapora.json
   (cada um com uma cópia .js, usada só no modo file://)
 blender/
-  chevette.blend           arquivo de trabalho do modelo
+  chevette.blend           arquivo de trabalho do Chevette
+  saveiro.blend            arquivo de trabalho da Saveiro (coleções Saveiro_G7 e Estudio)
   export/chevette.glb      exportação original do Blender (fonte do modelo otimizado)
   backups/                 versões anteriores do .blend
 data/export.geojson        ruas do OpenStreetMap (fonte do mapa da cidade)
@@ -145,8 +147,9 @@ Os objetos passados a cada quadro são reaproveitados, para não alocar memória
    - `cockpitCamera` e `driverSeat`;
    - `bodyHalfSize` e `tireContacts`;
    - `physics`: massa, entre-eixos, relações de marcha, torque etc.;
-   - `sound`.
-4. **Uso.** Coloque o novo id em `GAME.defaultVehicle` (`src/utils/Constants.js`). O `VehicleSystem` só carrega o modelo escolhido, e `despawn()` descarta o carro e libera o modelo da memória, o que já prepara uma futura tela de garagem.
+   - `sound`;
+   - `suspension.maxDrop`: quanto o carro pode ser rebaixado (Menu → Opções → Rebaixamento), medido entre o topo do pneu e a caixa de roda.
+4. **Uso.** O carro aparece sozinho em Menu → Carro (um botão por entrada do registro). A troca carrega o modelo sob demanda, mantém o carro no mesmo lugar e o jogador sentado, e libera o modelo anterior da memória. A escolha fica salva (`opts.car`). Na exportação do Blender, selecione só a coleção do carro, sem estúdio, luzes ou câmeras.
 5. **Build.** Rode `npm run build`.
 
 Nenhum outro arquivo precisa mudar: física, câmera, porta, luzes e colisões leem tudo da configuração.
