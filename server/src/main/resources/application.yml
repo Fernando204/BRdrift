@@ -1,12 +1,16 @@
 server:
-  port: 8080
+  port: ${PORT:8080}            # o Render informa a porta em PORT
+  # atrás do proxy HTTPS do Render: lê X-Forwarded-Proto (cookie Secure) e o IP real
+  forward-headers-strategy: native
   servlet:
     session:
       persistent: false
 
 spring:
   datasource:
-    # banco em arquivo (server/data/cargame.mv.db); não precisa instalar nada
+    # banco em arquivo (server/data/cargame.mv.db); não precisa instalar nada.
+    # Em produção pode ser trocado por PostgreSQL com as variáveis SPRING_DATASOURCE_URL,
+    # SPRING_DATASOURCE_USERNAME e SPRING_DATASOURCE_PASSWORD (veja o README).
     url: jdbc:h2:file:./data/cargame;AUTO_SERVER=TRUE
     username: sa
     password: ""

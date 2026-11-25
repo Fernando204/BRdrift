@@ -80,6 +80,28 @@ Depois acesse `http://localhost:8080`. Testes do servidor:
 cd server; mvn test
 ```
 
+### Docker e Render
+
+O `Dockerfile` da raiz compila o JavaScript e o servidor e gera uma imagem só com o Java, o servidor e os arquivos do jogo:
+
+```powershell
+docker build -t drift-br .
+```
+
+```powershell
+docker run -p 8080:8080 -v drift-dados:/app/data drift-br
+```
+
+Para publicar no [Render](https://render.com): envie o repositório ao GitHub e, no painel, use **New → Blueprint** (lê o `render.yaml`) ou **New → Web Service** com o runtime **Docker**. O servidor usa a porta que o Render passa em `PORT`, e o cookie de login sai como `Secure` atrás do HTTPS dele. O WebSocket funciona direto no mesmo endereço.
+
+**Dados:** no plano gratuito o disco do contêiner é apagado a cada deploy ou reinício, e com ele o banco H2 (contas e moedas). Para guardar os dados, escolha uma destas opções:
+
+- **PostgreSQL** (o driver já vem na imagem): crie um banco no Render e configure no serviço
+  `SPRING_DATASOURCE_URL=jdbc:postgresql://<host>:5432/<banco>`, `SPRING_DATASOURCE_USERNAME` e `SPRING_DATASOURCE_PASSWORD`, com os dados da "Internal Database URL". As tabelas são criadas sozinhas.
+- **Disco persistente** (planos pagos): monte em `/app/data` (há um exemplo comentado no `render.yaml`).
+
+No plano gratuito o serviço também dorme após 15 minutos sem acesso, e o primeiro acesso depois disso demora cerca de um minuto.
+
 Preços e limites ficam em `server/src/main/resources/application.yml` (`game.economy`, `game.rooms`); carros, peças pintáveis e preços dos carros em `catalog.json`.
 
 | Rota | O que faz |

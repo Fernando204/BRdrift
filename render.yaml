@@ -1,0 +1,17 @@
+# Blueprint do Render: New → Blueprint → escolha este repositório.
+# Cria o serviço web a partir do Dockerfile da raiz.
+services:
+  - type: web
+    name: drift-br
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/catalog
+    autoDeploy: true
+    # Para não perder contas e moedas a cada deploy, use um PostgreSQL
+    # (configure as variáveis SPRING_DATASOURCE_* no painel, veja o README)
+    # ou, num plano pago, um disco montado em /app/data:
+    # disk:
+    #   name: dados
+    #   mountPath: /app/data
+    #   sizeGB: 1
