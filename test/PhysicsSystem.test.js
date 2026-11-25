@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { PhysicsSystem } from '../src/systems/PhysicsSystem.js';
 import { VEHICLES } from '../src/vehicles/vehicles.config.js';
 
+// Protegem a física calibrada no jogo (direção, drift e estabilidade). Se algum falhar depois de
+// mexer em PhysicsSystem.js, a jogabilidade mudou: confira dirigindo antes de ajustar o teste.
+
 const map = {
   surfaceUnder(_state, result) { result.onRoad = true; result.distance = 0; },
   forEachObstacleNear() {},
@@ -10,10 +13,10 @@ const map = {
   updateProgress() {},
 };
 
-function createController({ speed = 20, lateral = 3, yaw = 0.8 } = {}) {
+function createController({ speed = 20, lateral = 0, yaw = 0, drift = false } = {}) {
   return {
     physics: VEHICLES.chevette.physics,
-    driftMode: true,
+    driftMode: drift,
     gear: 3,
     manual: true,
     rpm: 4000,
@@ -33,50 +36,45 @@ function createController({ speed = 20, lateral = 3, yaw = 0.8 } = {}) {
   };
 }
 
-function simulate(controller, input, count) {
-  for (let i = 0; i < count; i++) PhysicsSystem.step(controller, input, map, 1 / 120);
+const input = (steer, extra = {}) => ({ accel: false, brake: false, handbrake: false, steer, ...extra });
+
+function simulate(controller, inp, count) {
+  for (let i = 0; i < count; i++) PhysicsSystem.step(controller, inp, map, 1 / 120);
+  return controller.state;
 }
 
-test('countersteer reduces yaw in mirrored drifts', () => {
+test('direita (+1) vira o carro para a direita, com as rodas apontando para o mesmo lado', () => {
+  const s = simulate(createController(), input(1), 60);
+  assert.ok(s.r < -0.3, `guinada ${s.r}`);
+  assert.ok(s.h < 0 && s.x < 0, 'o carro deve sair para a direita');
+  assert.ok(s.steer > 0, 'as rodas dianteiras devem esterçar para a direita');
+});
+
+test('esquerda e direita são espelhadas', () => {
+  const right = simulate(createController(), input(1), 60);
+  const left = simulate(createController(), input(-1), 60);
+  assert.ok(Math.abs(right.r + left.r) < 1e-9);
+  assert.ok(Math.abs(right.x + left.x) < 1e-9);
+});
+
+test('no modo drift, acelerar e esterçar mantém o carro girando para o lado do comando', () => {
   for (const sign of [1, -1]) {
-    const controller = createController({ lateral: sign * 3, yaw: sign * 0.8 });
-    simulate(controller, { accel: false, brake: false, handbrake: false, steer: -sign }, 18);
-
-    assert.ok(Math.abs(controller.state.r) < 0.8);
-    assert.equal(Math.sign(controller.state.steer), -sign);
+    const s = simulate(createController({ drift: true }), input(sign, { accel: true }), 120);
+    assert.equal(Math.sign(s.r), -sign);
+    assert.ok(Math.abs(s.r) > 0.3);
   }
 });
 
-test('sustained countersteer can transition the drift to the opposite side', () => {
-  const controller = createController();
-  simulate(controller, { accel: true, brake: false, handbrake: false, steer: -1 }, 240);
-
-  assert.ok(controller.state.r < 0);
-  assert.ok(controller.state.vx < 0);
-});
-
-test('releasing throttle lets rear slip recover compared with sustained throttle', () => {
-  const coasting = createController();
-  const accelerating = createController();
-  simulate(coasting, { accel: false, brake: false, handbrake: false, steer: 0 }, 120);
-  simulate(accelerating, { accel: true, brake: false, handbrake: false, steer: 0 }, 120);
-
-  assert.ok(Math.abs(coasting.state.slipAngleRear) < Math.abs(accelerating.state.slipAngleRear));
-});
-
-test('countersteer remains effective at low, medium, and high speeds', () => {
-  for (const speed of [6, 20, 35]) {
-    const controller = createController({ speed, lateral: 2, yaw: 0.5 });
-    simulate(controller, { accel: false, brake: false, handbrake: false, steer: -1 }, 18);
-
-    assert.ok(Math.abs(controller.state.r) < 0.5, `countersteer did not reduce yaw at ${speed} m/s`);
+test('no modo drift, o contra-esterço automático segura o carro ao soltar o volante', () => {
+  for (const sign of [1, -1]) {
+    const s = simulate(createController({ drift: true, lateral: 3 * sign, yaw: 0.8 * sign }), input(0), 60);
+    assert.ok(Math.abs(s.r) < 0.1, `guinada ${s.r}`);
   }
 });
 
-test('front tire force steers the vehicle in the commanded direction', () => {
-  const controller = createController({ lateral: 0, yaw: 0 });
-  controller.driftMode = false;
-  simulate(controller, { accel: false, brake: false, handbrake: false, steer: 1 }, 24);
-
-  assert.ok(controller.state.r > 0);
+test('no modo normal, um carro escorregando se estabiliza', () => {
+  for (const sign of [1, -1]) {
+    const s = simulate(createController({ lateral: 3 * sign, yaw: 0.8 * sign }), input(0), 60);
+    assert.ok(Math.abs(s.r) < 0.05, `guinada ${s.r}`);
+  }
 });

@@ -46,7 +46,6 @@ export class Game {
     this.pausedAt = 0;
     this.vehicleId = GAME.defaultVehicle;     // trocado pelo salvo nas opções, logo abaixo
     this.physicsInput = { accel: false, brake: false, handbrake: false, steer: 0 };   // reaproveitado a cada passo
-    this.physicsAccumulator = 0;
     this.shownLap = 0;
     this.exploringShown = null;
     this.keyLabelsVersion = 0;                  // muda quando as teclas são reconfiguradas (textos das ações)
@@ -858,11 +857,8 @@ export class Game {
     inp.brake = driving && input.isDown('brake');
     inp.handbrake = !driving || input.isDown('hb');
     inp.steer = driving ? (input.isDown('right') ? 1 : 0) - (input.isDown('left') ? 1 : 0) : 0;
-    this.physicsAccumulator += dt;
-    while (this.physicsAccumulator >= GAME.physicsStep) {
-      PhysicsSystem.step(ctrl, inp, map, GAME.physicsStep);
-      this.physicsAccumulator -= GAME.physicsStep;
-    }
+    const steps = Math.ceil(dt / GAME.physicsStep);
+    for (let i = 0; i < steps; i++) PhysicsSystem.step(ctrl, inp, map, dt / steps);
   }
 }
 

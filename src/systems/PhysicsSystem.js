@@ -8,7 +8,7 @@ import { CollisionSystem } from './CollisionSystem.js';
  *
  * Os números foram calibrados no jogo; mude com cuidado e teste nos dois modos.
  */
-const tireForce = (capacity, stiffness, slip) => -capacity * Math.tanh(stiffness * slip);
+const tireDrift = (load, shape, slip) => -load * Math.sin(shape * Math.atan(11 * slip));
 const surface = { onRoad: true, distance: 0 };   // reaproveitado a cada passo (sem alocação)
 
 export class PhysicsSystem {
@@ -22,7 +22,6 @@ export class PhysicsSystem {
     const K = ctrl.state, P = ctrl.physics, drift = ctrl.driftMode;
     const mass = P.mass, wb = P.wheelbase, cgF = P.cgToFront, cgR = P.cgToRear, R = P.wheelRadius, ratios = P.gearRatios;
     const staticFront = mass * GRAVITY * cgR / wb, staticRear = mass * GRAVITY * cgF / wb;
-    const cgHeight = P.cgHeight || 0.52, trackWidth = P.trackWidth || 1.45;
     const rpmAt = (gear, v) => Math.abs(v) / R * Math.abs(ratios[gear + 1]) * 9.549;
 
     const accel = input.accel, brake = input.brake, handbrake = input.handbrake;
@@ -57,18 +56,17 @@ export class PhysicsSystem {
       if (accel && vLong < -1) throttle = 0, braking = 1;
     }
 
-    // O ângulo das rodas segue o comando do jogador. As forças dos pneus fazem o contra-esterço funcionar.
+    // esterço: limitado com a velocidade; contra-esterço automático (forte no drift, leve no normal)
     const slipDen = Math.max(absLong, 1.5);
-    const maxSteer = Math.min(0.6, 0.17 + 28 / (speed * speed + 30));
-    const steer = clamp(ctrl.steerInput * maxSteer * (handbrake ? 0.65 : 1), -0.55, 0.55);
-    K.steer = steer;
+    const bodySlip = clamp(Math.atan2(vLat, Math.max(absLong, 2)), -0.8, 0.8);
+    let steer = -ctrl.steerInput * Math.min(0.6, 0.17 + 28 / (speed * speed + 30)) * (handbrake ? 0.65 : 1);
+    if (vLong > 3) steer += (drift ? 0.9 : 0.3) * bodySlip * Math.min(1, vLong / 8);
+    steer = clamp(steer, -0.55, 0.55);
+    K.steer = -steer;
 
     // cargas por eixo, motor e forças longitudinais
-    const transfer = clamp(mass * K.ax * cgHeight / wb, -0.35 * mass * GRAVITY, 0.35 * mass * GRAVITY);
-    const loadF = Math.max(staticFront * 0.15, staticFront - transfer);
-    const loadR = Math.max(staticRear * 0.15, staticRear + transfer);
-    const lateralTransfer = clamp(Math.abs(K.ay) * cgHeight / (trackWidth * GRAVITY), 0, 0.45);
-    const lateralGrip = 1 - 0.22 * lateralTransfer;
+    const transfer = clamp(mass * K.ax * 0.35 / wb, -2e3, 2e3);
+    const loadF = staticFront - transfer, loadR = staticRear + transfer;
     const ratio = ratios[ctrl.gear + 1];
     const wheelRpm = rpmAt(ctrl.gear, vLong);
     const engineRpm = ctrl.gear === 0 ? 900 + throttle * 6100 : Math.max(wheelRpm, 900 + throttle * 2600);
@@ -97,20 +95,17 @@ export class PhysicsSystem {
     const longR = clamp(drive + brakeForce * 0.4 - dir * longFade * hb * 1500, -0.9 * capR, 0.9 * capR);
 
     // forças laterais (círculo de atrito) e ângulos de deriva
-    const latCapF = grip * loadF * lateralGrip * Math.sqrt(Math.max(0, 1 - (longF / capF) ** 2));
-    const throttleRearGrip = 1 - throttle * (drift ? 0.2 : 0.08);
-    const latCapR = grip * loadR * lateralGrip * Math.sqrt(Math.max(0, 1 - (longR / capR) ** 2))
-      * (hb ? (drift ? 0.58 : 0.72) : 1) * throttleRearGrip;
+    const slipLoss = 1 - 0.25 * clamp((Math.abs(bodySlip) - 0.1) / 0.4, 0, 1);
+    const latCapF = Math.max(0.25 * grip * loadF, grip * loadF * Math.sqrt(Math.max(0, 1 - (longF / capF) ** 2))) * slipLoss;
+    const latCapR = Math.max(0.2 * grip * loadR, grip * loadR * Math.sqrt(Math.max(0, 1 - (longR / capR) ** 2))) * (hb ? (drift ? 0.6 : 0.75) : 1) * slipLoss;
     const slipF = Math.atan((vLat + cgF * yaw) / slipDen) - dir * steer;
     const slipR = Math.atan((vLat - cgR * yaw) / slipDen);
-    // Relaxação dos pneus: resposta rápida em alta velocidade, progressiva em baixa velocidade.
-    const relax = Math.min(1, dt * Math.max(8, speed / 0.35));
-    K.slipAngleFront += (slipF - K.slipAngleFront) * relax;
-    K.slipAngleRear += (slipR - K.slipAngleRear) * relax;
-    const aF = K.slipAngleFront, aR = K.slipAngleRear;
-    // Saturação suave evita aderência infinita; dianteira conserva mais autoridade durante o drift.
-    const latF = tireForce(latCapF, drift ? 7 : 8, aF) * latFade;
-    const latR = tireForce(latCapR, drift ? 3.8 : 6.5, aR) * latFade;
+    // comprimento de relaxação (~0,35 m): o pneu leva um instante para responder (modo normal)
+    const relax = Math.min(1, speed * dt / 0.35 + 0.02);
+    const aF = drift ? slipF : (K.slipAngleFront += (slipF - K.slipAngleFront) * relax);
+    const aR = drift ? slipR : (K.slipAngleRear += (slipR - K.slipAngleRear) * relax);
+    const latF = (drift ? tireDrift(latCapF, 1.4, aF) : -latCapF * Math.sin(1.3 * Math.atan(9.5 * aF))) * latFade;
+    const latR = (drift ? tireDrift(latCapR, 1.45, aR) : -latCapR * 1.06 * Math.sin(1.22 * Math.atan(10 * aR))) * latFade;
 
     // integração no referencial do carro
     const cs = Math.cos(steer), sn = Math.sin(steer);
@@ -121,13 +116,29 @@ export class PhysicsSystem {
     vLong = nl * rc + nt * rs;
     vLat = nt * rc - nl * rs;
 
-    // Sem correção direta de yaw: a estabilidade e o contra-esterço vêm das forças dos pneus.
+    // controle de estabilidade (modo normal): compara a guinada com a do modelo de referência
     K.fyRear = latR;
     K.esc = false;
     K.escCut = 1;
+    if (!drift && !hb && vLong > 3) {
+      const limit = 1.2 * GRAVITY * grip / Math.max(vLong, 3);
+      const ref = clamp(vLong * steer / (wb * (1 + vLong * vLong / 420)), -limit, limit);
+      const excess = Math.abs(yaw) - Math.abs(ref) - 0.06;
+      const opposite = Math.sign(yaw) !== Math.sign(ref) && Math.abs(yaw) > 0.08;
+      if (excess > 0 || opposite) {
+        const k = clamp((opposite ? Math.abs(yaw) : excess) / 0.15, 0, 1);
+        yaw -= (yaw - ref) * Math.min(1, dt * 6) * k;
+        vLong -= Math.min(Math.max(vLong, 0), 1.4 * k * dt);
+        vLat *= Math.exp(-1.5 * k * dt);
+        K.esc = true;
+        K.escCut = clamp(1 - k * 0.6, 0.3, 1);
+      }
+    }
 
-    // Freio de mão reduz a aderência traseira; a rotação resultante continua sendo dos pneus.
-    yaw *= Math.exp(-0.08 * dt);
+    // freio de mão em baixa velocidade e parada suave
+    const handbrakeSlide = hb && speed < 14;
+    if (handbrakeSlide) yaw -= ctrl.steerInput * (throttle ? 4 : 1.6) * (drift ? 1 : 0.5) * dt;
+    yaw *= Math.exp(-(handbrakeSlide ? 1.2 : 0.3) * dt);
     const stop = hb && throttle ? 0 : Math.max(0, 1 - speed / 2.5);
     vLat *= Math.exp(-8 * stop * dt);
     yaw *= Math.exp(-6 * stop * dt);
