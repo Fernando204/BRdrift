@@ -34,7 +34,6 @@ export class TouchControls {
     document.body.classList.add('touch');
     $('touch').style.display = 'block';
     this.game.renderer.enableLowPower();
-    this.game.lighting.reduceShadowQuality();
     this.game.resize();
   }
 }

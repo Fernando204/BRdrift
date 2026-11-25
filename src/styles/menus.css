@@ -19,6 +19,14 @@
 .sw button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
 .sw button.on{border-color:#fff}
 input[type=range]{width:150px}
+@media (max-width:420px){
+  .graphic-row{flex-wrap:wrap}
+  .graphic-row>:first-child{flex:1 1 100%}
+  .graphic-row .seg{gap:4px;margin-left:auto}
+  .graphic-row .seg button{padding-right:8px;padding-left:8px}
+  .distance-control{display:flex;align-items:center;gap:8px;width:100%}
+  .distance-control input{flex:1;min-width:80px;width:auto}
+}
 #ctlList{display:grid;grid-template-columns:1fr auto auto;gap:6px 8px;align-items:center;text-align:left;font-size:13px;max-height:44vh;overflow:auto;margin-top:8px;padding-right:4px}
 .kbtn{min-width:66px;border:0;border-radius:7px;padding:6px 8px;background:rgba(255,255,255,.14);color:#fff;font-size:12px;cursor:pointer;font-family:inherit}
 .kbtn.cap{background:var(--accent)}

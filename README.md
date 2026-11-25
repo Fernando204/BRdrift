@@ -2,6 +2,8 @@
 
 Jogo de direção em Three.js com um Chevrolet Chevette SL modelado no Blender, dois mapas (um circuito e as ruas reais de Salto de Pirapora/SP com GPS), personagem que entra e sai do carro, partida no motor, câmbio manual/automático e modos de condução normal (com TC/ESC) e drift.
 
+Em **Menu → Opções**, ajuste a qualidade gráfica, ative ou desative sombras e controle a distância de renderização. As preferências são salvas no navegador.
+
 ## Como jogar
 
 - **Sem instalar nada:** abra `index.html` direto no navegador. Funciona também por `file://`.

@@ -15,6 +15,11 @@ export class Settings {
     this.volume = typeof saved.vol === 'number' ? clamp(saved.vol, 0, 1) : 0.7;
     this.mapId = saved.mapa ? 'salto' : 'circuito';
     this.driftMode = !!saved.drift;
+    this.graphicsQuality = ['low', 'medium', 'high'].includes(saved.gfx) ? saved.gfx : 'medium';
+    this.shadows = typeof saved.shadow === 'boolean' ? saved.shadow : true;
+    this.renderDistance = typeof saved.renderDistance === 'number'
+      ? clamp(saved.renderDistance, 250, 1200)
+      : 700;
   }
 
   save() {
@@ -25,6 +30,9 @@ export class Settings {
       vol: this.volume,
       mapa: this.mapId === 'salto' ? 1 : 0,
       drift: this.driftMode ? 1 : 0,
+      gfx: this.graphicsQuality,
+      shadow: this.shadows,
+      renderDistance: this.renderDistance,
     });
   }
 }

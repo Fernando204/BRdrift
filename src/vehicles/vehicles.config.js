@@ -12,6 +12,19 @@ export const VEHICLES = {
     /** Material cuja cor é trocada pela opção "Cor do carro". */
     paintMaterial: 'Pintura_Branca',
     colors: ['#e7e7e3', '#c4161c', '#1f4fb5', '#f2b705', '#1b1b1d', '#2e8b57'],
+    customizableParts: [
+      { objectName: 'Capo', name: 'Capô', materialName: 'Pintura_Branca', originalColor: '#e7e7e3', categories: ['paint'] },
+      { objectName: 'Cabine', name: 'Teto e cabine', materialName: 'Pintura_Branca', originalColor: '#e7e7e3', categories: ['paint'] },
+      { objectName: 'Carroceria', name: 'Carroceria', materialName: 'Pintura_Branca', originalColor: '#e7e7e3', categories: ['paint'] },
+      { objectName: 'Porta_Esquerda', name: 'Porta do motorista', materialName: 'Pintura_Branca', originalColor: '#e7e7e3', categories: ['paint'] },
+      { objectName: 'Porta_Direita', name: 'Porta do passageiro', materialName: 'Pintura_Branca', originalColor: '#e7e7e3', categories: ['paint'] },
+      { objectName: 'Paralama_Ponta_Esquerda', name: 'Para-lama dianteiro esquerdo', materialName: 'Pintura_Branca', originalColor: '#e7e7e3', categories: ['paint'] },
+      { objectName: 'Paralama_Ponta_Direita', name: 'Para-lama dianteiro direito', materialName: 'Pintura_Branca', originalColor: '#e7e7e3', categories: ['paint'] },
+      { objectName: 'Tampa_Porta_Malas', name: 'Tampa do porta-malas', materialName: 'Pintura_Branca', originalColor: '#e7e7e3', categories: ['paint'] },
+      { objectName: 'Saia_Dianteira', name: 'Saia dianteira', materialName: 'Pintura_Branca', originalColor: '#e7e7e3', categories: ['paint'] },
+      { objectName: 'Para_Choque_Dianteiro', name: 'Para-choque dianteiro', materialName: 'Borracha_Preta', originalColor: '#242424', categories: ['trim'] },
+      { objectName: 'Para_Choque_Traseiro', name: 'Para-choque traseiro', materialName: 'Borracha_Preta', originalColor: '#242424', categories: ['trim'] },
+    ],
 
     /** Objetos do modelo que se movem separadamente do resto (não entram na fusão de malhas). */
     wheels: {
@@ -24,6 +37,7 @@ export const VEHICLES = {
     door: {
       hinge: [0.765, 0, 0.862],
       openAngle: -1.12,
+      interactionAction: 'toggleDoor',
       /** Ponto ao lado da porta (x lateral, z) onde o jogador aparece ao sair e pode interagir. */
       standPoint: [1.3, 0.15],
       parts: [

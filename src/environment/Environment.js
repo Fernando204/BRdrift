@@ -42,6 +42,7 @@ export class Environment {
 
     this.night = false;
     this.mapFogFar = 700;
+    this.renderDistance = null;
   }
 
   /** O gramado acompanha o tamanho do mapa (a cidade é maior que o circuito). */
@@ -52,6 +53,11 @@ export class Environment {
 
   setMapFogFar(far) {
     this.mapFogFar = far;
+    this.#applyFog();
+  }
+
+  setRenderDistance(distance) {
+    this.renderDistance = distance;
     this.#applyFog();
   }
 
@@ -71,7 +77,7 @@ export class Environment {
   }
 
   #applyFog() {
-    this.scene.fog.far = this.night ? NIGHT.fogFar : this.mapFogFar;
+    this.scene.fog.far = this.renderDistance ?? (this.night ? NIGHT.fogFar : this.mapFogFar);
   }
 }
 

@@ -19,6 +19,7 @@ export class Vehicle {
     this.root.add(this.model);
 
     this.#setupMovingParts();
+    this.#prepareCustomizableParts();
     this.#mergeStaticMeshes();
     this.#setupHeadlights();
 
@@ -52,6 +53,7 @@ export class Vehicle {
       const part = scene.getObjectByName(name);
       if (part) this.door.attach(part);
     }
+    this.door.traverse(object => { object.userData.vehicleInteraction = cfg.door.interactionAction; });
     this.door.traverse(o => {
       if (!o.isMesh) return;
       o.castShadow = o.receiveShadow = true;
@@ -61,6 +63,53 @@ export class Vehicle {
     this.movingParts = new Set([this.steeringWheel, this.door, ...Object.values(this.wheels).map(w => w.pivot)]);
   }
 
+  #prepareCustomizableParts() {
+    const definitions = new Map((this.config.customizableParts || []).map(part => [part.objectName, part]));
+    const found = new Set();
+    this.customizableParts = [];
+    this.paintMaterials = [];
+    this.model.traverse(object => {
+      const definition = definitions.get(object.name);
+      if (!definition) return;
+      found.add(definition.objectName);
+      const meshes = [];
+      if (object.isMesh) meshes.push(object);
+      else object.traverse(child => { if (child.isMesh) meshes.push(child); });
+
+      const partMaterials = [], paintMaterials = [], meshMaterials = [];
+      for (const mesh of meshes) {
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        const clones = materials.map(material => material.clone());
+        meshMaterials.push([mesh, clones]);
+        partMaterials.push(...clones);
+        paintMaterials.push(...clones.filter(material => material.name === definition.materialName));
+      }
+      if (!paintMaterials.length) {
+        console.warn(`A peça "${definition.objectName}" não possui o material "${definition.materialName}".`);
+        partMaterials.forEach(material => material.dispose());
+        return;
+      }
+      for (const [mesh, clones] of meshMaterials) mesh.material = Array.isArray(mesh.material) ? clones : clones[0];
+
+      const part = {
+        ...definition,
+        object,
+        meshes,
+        materials: partMaterials,
+        paintMaterials,
+        originalColor: definition.originalColor || '#' + paintMaterials[0].color.getHexString(),
+      };
+      object.userData.customizablePart = part;
+      for (const mesh of meshes) mesh.userData.customizablePart = part;
+      this.customizableParts.push(part);
+      if (definition.materialName === this.config.paintMaterial) this.paintMaterials.push(...paintMaterials);
+    });
+
+    for (const definition of definitions.values()) {
+      if (!found.has(definition.objectName)) console.warn(`Peça personalizável não encontrada no modelo: "${definition.objectName}".`);
+    }
+  }
+
   /** Funde todas as malhas estáticas que usam o mesmo material numa só (menos chamadas de desenho). */
   #mergeStaticMeshes() {
     const scene = this.model, lights = this.config.lights;
@@ -68,6 +117,7 @@ export class Vehicle {
     const byMaterial = new Map(), merged = [], indicatorSides = {};
     scene.traverse(mesh => {
       if (!mesh.isMesh || isMoving(mesh)) return;
+      if (mesh.userData.customizablePart) return;
       const geo = toFloatGeometry(mesh.geometry);
       geo.applyMatrix4(mesh.matrixWorld);
       if (mesh.matrixWorld.determinant() < 0) flipWinding(geo);
@@ -101,6 +151,7 @@ export class Vehicle {
       if (name === lights.indicator) material.emissive = new Color(16742912), material.emissiveIntensity = 0;
       if (name === this.config.paintMaterial) this.materials.paint = material;
     }
+    if (this.materials.paint) this.paintMaterials.push(this.materials.paint);
   }
 
   #setupHeadlights() {
@@ -116,7 +167,7 @@ export class Vehicle {
   }
 
   setColor(hex) {
-    this.materials.paint?.color.set(hex);
+    for (const material of this.paintMaterials) material.color.set(hex);
   }
 
   /** Posição, rodas, volante, porta e luzes a partir do estado do controlador. */

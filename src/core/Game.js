@@ -18,6 +18,7 @@ import { Menu } from '../ui/Menu.js';
 import { GpsMap } from '../ui/GpsMap.js';
 import { TouchControls } from '../ui/TouchControls.js';
 import { VEHICLES } from '../vehicles/vehicles.config.js';
+import { VehicleCustomization } from '../vehicles/VehicleCustomization.js';
 import { GAME } from '../utils/Constants.js';
 import { $ } from '../utils/Helpers.js';
 
@@ -29,6 +30,7 @@ export class Game {
   constructor() {
     this.started = false;        // passou do menu inicial
     this.paused = false;
+    this.editMode = true;
     this.pausedAt = 0;
     this.vehicleId = GAME.defaultVehicle;
     this.physicsInput = { accel: false, brake: false, handbrake: false, steer: 0 };   // reaproveitado a cada passo
@@ -44,9 +46,14 @@ export class Game {
     this.scene = this.environment.scene;
     this.lighting = new Lighting(this.scene, this.environment.sunDirection);
     this.cameraController = new CameraController(this.renderer.canvas);
+    this.renderer.setQuality(this.settings.graphicsQuality);
+    this.lighting.setQuality(this.settings.graphicsQuality);
+    this.renderer.renderer.shadowMap.enabled = this.settings.shadows;
+    this.lighting.setShadows(this.settings.shadows);
+    this.cameraController.setRenderDistance(this.settings.renderDistance);
     this.world = new World(this.environment, this.assets);
     this.vehicles = new VehicleSystem(this.scene, this.assets);
-    this.player = new PlayerController(this.scene);
+    this.player = new PlayerController(this.scene, this.renderer.canvas);
     this.smoke = new TireSmoke(this.scene);
     this.skidMarks = new SkidMarks(this.scene, VEHICLES[this.vehicleId].tireContacts, this.smoke);
     this.input = new InputSystem();
@@ -64,17 +71,38 @@ export class Game {
       restart: () => this.restart(),
       pause: () => this.pause(),
       selectMap: id => this.selectMap(id),
-      setGearbox: manual => { this.settings.manualGearbox = manual; if (this.controller) this.controller.manual = manual; this.saveSettings(); },
+      setGearbox: manual => { this.settings.manualGearbox = manual; if (this.controller) this.controller.manual = manual; this.menu.refresh(); this.saveSettings(); },
       setDriveMode: drift => this.setDriveMode(drift, false),
-      setNight: night => { this.setNight(night); this.saveSettings(); },
-      setColor: index => { this.setColor(index); this.saveSettings(); },
+      setNight: night => { this.setNight(night); this.menu.refresh(); this.saveSettings(); },
+      setColor: index => { this.setColor(index); this.menu.refresh(); this.saveSettings(); },
       setVolume: v => { this.settings.volume = v; this.audio.setVolume(v); this.saveSettings(); },
+      setGraphicsQuality: quality => { this.settings.graphicsQuality = quality; this.renderer.setQuality(quality); this.lighting.setQuality(quality); this.menu.refresh(); this.saveSettings(); },
+      setShadows: enabled => { this.settings.shadows = enabled; this.renderer.renderer.shadowMap.enabled = enabled; this.lighting.setShadows(enabled); this.menu.refresh(); this.saveSettings(); },
+      setRenderDistance: distance => { this.settings.renderDistance = distance; this.environment.setRenderDistance(distance); this.cameraController.setRenderDistance(distance); this.menu.refresh(); this.saveSettings(); },
     });
     this.gpsMap = new GpsMap(this);
+    this.vehicleCustomization = new VehicleCustomization({
+      canvas: this.renderer.canvas,
+      getCamera: () => this.cameraController.camera,
+      getVehicle: () => this.vehicle,
+      getPlayerBody: () => this.player.body,
+      onInteract: action => {
+        if (action === 'toggleDoor' && this.vehicle) this.vehicle.doorTarget = this.vehicle.doorTarget ? 0 : 1;
+      },
+      onOpenChange: open => {
+        this.input.releaseAll();
+        this.player.firstPerson.setEnabled(!open && this.playing && !this.player.inVehicle && !this.paused && !this.gpsMap.open);
+      },
+    });
     this.#bindInput();
     this.touch = new TouchControls(this);
 
     $('bmodo').addEventListener('pointerdown', e => { e.preventDefault(); this.setDriveMode(!this.settings.driftMode, true); });
+    $('editMode').addEventListener('pointerdown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!this.player.inVehicle) this.setEditMode(!this.editMode);
+    });
     addEventListener('resize', () => this.resize());
     this.resize();
   }
@@ -143,6 +171,14 @@ export class Game {
       return false;
     };
     input.onEscape = () => {
+      if (this.vehicleCustomization.open) {
+        this.vehicleCustomization.close();
+        return;
+      }
+      if (!this.player.inVehicle && this.player.firstPerson.pointerLocked) {
+        this.player.firstPerson.exitPointerLock();
+        return;
+      }
       if (this.menu.handleEscape() || !this.started) return;
       this.paused ? this.resume() : this.pause();
     };
@@ -154,14 +190,15 @@ export class Game {
     input.on('night', () => this.toggleNight());
     input.on('cam', () => this.cameraController.toggleMode());
     input.on('reset', () => this.#spawnVehicle(true));
-    input.on('map', () => this.gpsMap.show(this.focus));
+    input.on('map', () => { if (!this.vehicleCustomization.open) this.gpsMap.show(this.focus); });
     input.on('paint', () => this.setColor(this.settings.colorIndex + 1));
-    input.on('up', () => ctrl().shiftUp());
-    input.on('dn', () => ctrl().shiftDown());
+    input.on('up', () => { if (this.player.inVehicle) ctrl().shiftUp(); });
+    input.on('dn', () => { if (this.player.inVehicle) ctrl().shiftDown(); });
     input.on('man', () => ctrl().toggleGearbox());
     input.on('acao', () => this.primaryAction());
     input.on('partida', () => this.toggleIgnition());
     input.on('modo', () => this.setDriveMode(!this.settings.driftMode, true));
+    input.on('edit', () => { if (!this.player.inVehicle) this.setEditMode(!this.editMode); });
   }
 
   // ------------------------------------------------------------------ fluxo de partida
@@ -176,7 +213,10 @@ export class Game {
     this.menu.close();
     this.hud.show();
     this.audio.init();
-    this.cameraController.heading = this.controller.state.h;
+    this.player.exit(this.vehicle, this.controller, this.world.map);
+    this.player.firstPerson.reset(this.player.body.h);
+    this.player.firstPerson.setEnabled(true);
+    this.cameraController.heading = this.player.body.h;
     this.cameraController.mode = CameraMode.COCKPIT;
     this.updateHelp();
     this.hud.message('Pressione ' + this.input.label('partida') + ' para dar partida', 4);
@@ -185,6 +225,7 @@ export class Game {
 
   pause() {
     this.paused = true;
+    this.vehicleCustomization.close();
     this.pausedAt = performance.now();
     this.input.releaseAll();
     this.saveSettings();
@@ -232,6 +273,7 @@ export class Game {
     if (!initial) this.menu.setLoading('Montando o mapa…');
     try {
       const map = await this.world.setMap(id);
+      this.environment.setRenderDistance(this.settings.renderDistance);
       this.settings.mapId = id;
       map.onLap = text => {
         this.hud.message(text);
@@ -287,8 +329,23 @@ export class Game {
 
   updateHelp() {
     const k = a => this.input.label(a), city = !!this.world.map?.gps;
+    const customize = this.player && !this.player.inVehicle
+      ? (this.editMode ? ' \xB7 Mire numa pe\xE7a e clique para personalizar' : ' \xB7 Clique na porta para abrir/fechar')
+      : '';
     this.hud.setHelp(k('cam') + ' c\xE2mera \xB7 ' + k('reset') + (city ? ' voltar \xE0 rua \xB7 ' : ' voltar \xE0 pista \xB7 ') + k('lights') + ' far\xF3is \xB7 ' +
-      k('man') + ' manual \xB7 ' + k('acao') + ' porta/entrar/sair \xB7 ' + k('partida') + ' partida \xB7 ' + (city ? k('map') + ' mapa/GPS \xB7 ' : '') + 'Esc menu');
+      k('man') + ' manual \xB7 ' + k('acao') + ' porta/entrar/sair \xB7 ' + k('partida') + ' partida \xB7 ' +
+      (this.player && !this.player.inVehicle ? k('edit') + ' edição \xB7 ' : '') + (city ? k('map') + ' mapa/GPS \xB7 ' : '') + customize + ' \xB7 Esc menu');
+  }
+
+  setEditMode(enabled) {
+    if (this.vehicleCustomization.open) this.vehicleCustomization.close();
+    this.editMode = enabled;
+    this.vehicleCustomization.setEditMode(enabled);
+    const button = $('editMode');
+    button.textContent = enabled ? '✎ Edição: ligada' : '✎ Edição: desligada';
+    button.setAttribute('aria-pressed', String(enabled));
+    this.updateHelp();
+    this.hud.message(enabled ? 'Modo edição ativado' : 'Modo edição desativado', 1.5);
   }
 
   // ------------------------------------------------------------------ jogador e porta
@@ -298,14 +355,23 @@ export class Game {
   }
 
   enterVehicle() {
+    this.vehicleCustomization.close();
     this.player.enter(this.vehicle, this.controller);
+    this.player.firstPerson.setEnabled(false);
     this.cameraController.mode = CameraMode.COCKPIT;
     this.cameraController.reset(this.controller.state.h);
+    this.updateHelp();
     this.hud.message('Pressione ' + this.input.label('partida') + ' (ou 🔑) para dar partida', 3);
   }
 
   exitVehicle() {
-    if (this.player.exit(this.vehicle, this.controller)) this.cameraController.reset(this.player.body.h);
+    if (this.player.exit(this.vehicle, this.controller, this.world.map)) {
+      this.player.firstPerson.reset(this.player.body.h);
+      this.player.firstPerson.setEnabled(true);
+      this.cameraController.mode = CameraMode.COCKPIT;
+      this.cameraController.reset(this.player.body.h);
+      this.updateHelp();
+    }
   }
 
   runAction(id) {
@@ -341,6 +407,10 @@ export class Game {
   frame(dt, now) {
     const map = this.world.map, ctrl = this.controller, vehicle = this.vehicle;
     if (!map) return;
+    const exploring = !this.player.inVehicle && this.started && !this.paused && !this.gpsMap.open;
+    this.vehicleCustomization.setActive(exploring);
+    this.player.firstPerson.setEnabled(exploring && !this.vehicleCustomization.open);
+    $('editMode').hidden = !exploring;
 
     if (this.playing && !this.gpsMap.open) {
       this.#stepPhysics(dt, map);
@@ -361,7 +431,7 @@ export class Game {
 
     if (vehicle) {
       vehicle.update(dt, ctrl);
-      this.player.setVisible(!(this.player.inVehicle && this.cameraController.mode === CameraMode.COCKPIT && this.started && !this.paused));
+      this.player.setVisible(!(this.cameraController.mode === CameraMode.COCKPIT && this.started && !this.paused));
       ctrl.updateIndicators(dt);
       this.hud.setSignals(ctrl);
     }
@@ -374,7 +444,11 @@ export class Game {
     c.cockpitOffset = VEHICLES[this.vehicleId].cockpitCamera;
     c.onFoot = !this.player.inVehicle;
     c.playerBody = this.player.body;
+    c.fpsYaw = this.player.firstPerson.yaw;
+    c.fpsPitch = this.player.firstPerson.pitch;
+    c.fpsEye = this.player.firstPerson.getCameraPosition(this.player.body);
     this.cameraController.update(dt, c);
+    this.vehicleCustomization.update(dt);
     const focus = this.focus;
     this.environment.followCamera(this.cameraController.camera);
     this.lighting.follow(focus.x, focus.z);

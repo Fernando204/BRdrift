@@ -1,17 +1,19 @@
 import { Character } from './Character.js';
-import { CollisionSystem } from '../systems/CollisionSystem.js';
+import { FirstPersonController } from './FirstPersonController.js';
 
-const WALK_SPEED = 1.8, RUN_SPEED = 5.2, TURN_RATE = 2.6, BODY_RADIUS = 0.32, INTERACT_DISTANCE = 1.8;
+const INTERACT_DISTANCE = 1.8;
 
 /**
  * O jogador: sentado no carro ou a pé. Cuida de abrir/fechar a porta, entrar, sair e andar.
  */
 export class PlayerController {
-  constructor(scene) {
+  constructor(scene, canvas) {
     this.scene = scene;
     this.inVehicle = true;
-    this.body = { x: 0, z: 0, h: 0, vx: 0, vz: 0, r: 0, speed: 0, phase: 0 };
+    this.body = { x: 0, y: 0, z: 0, h: 0, vx: 0, vz: 0, vy: 0, r: 0, speed: 0, phase: 0, grounded: true };
     this.character = new Character();
+    this.firstPerson = new FirstPersonController(canvas);
+    this.firstPerson.bindMouse();
     this.onMessage = null;
   }
 
@@ -38,7 +40,7 @@ export class PlayerController {
   }
 
   /** Só sai com o carro (quase) parado; desliga o motor e abre a porta. */
-  exit(vehicle, ctrl) {
+  exit(vehicle, ctrl, map) {
     if (ctrl.speedMs > 1.2) {
       this.onMessage?.('Pare o carro para sair', 1.5);
       return false;
@@ -47,8 +49,9 @@ export class PlayerController {
     this.inVehicle = false;
     vehicle.doorTarget = 1;
     const p = this.#standPoint(ctrl.state, vehicle.config);
-    Object.assign(this.body, { x: p.x, z: p.z, h: ctrl.state.h, speed: 0 });
-    this.character.standIn(this.scene, p.x, p.z, this.body.h);
+    Object.assign(this.body, { x: p.x, z: p.z, h: ctrl.state.h, y: 0, vy: 0, grounded: true, speed: 0 });
+    this.firstPerson.resolveSafeSpawnPoint(this.body, p, map, ctrl.state, vehicle.config);
+    this.character.standIn(this.scene, this.body.x, this.body.z, this.body.h);
     return true;
   }
 
@@ -73,16 +76,8 @@ export class PlayerController {
 
   /** Movimento a pé (W/S andam, A/D giram, Espaço corre) e colisões. */
   update(dt, input, map, vehicleState, vehicleConfig) {
-    const b = this.body, forward = input.isDown('accel') ? 1 : 0, back = input.isDown('brake') ? 1 : 0;
-    b.h += ((input.isDown('left') ? 1 : 0) - (input.isDown('right') ? 1 : 0)) * TURN_RATE * dt;
-    b.speed += ((forward - back * 0.6) * (input.isDown('hb') ? RUN_SPEED : WALK_SPEED) - b.speed) * Math.min(1, dt * 8);
-    b.vx = Math.sin(b.h) * b.speed;
-    b.vz = Math.cos(b.h) * b.speed;
-    b.x += b.vx * dt;
-    b.z += b.vz * dt;
-    CollisionSystem.circleVsVehicle(b, BODY_RADIUS, vehicleState, vehicleConfig.bodyHalfSize);
-    CollisionSystem.circleVsObstacles(b, BODY_RADIUS, map);
-    map.collideBody(b);
+    this.firstPerson.update(dt, input, map, vehicleState, vehicleConfig, this.body);
+    const b = this.body;
     b.phase += b.speed * dt * 3.4;
     this.character.animateWalk(b.phase, b.speed, b.x, b.z, b.h);
   }

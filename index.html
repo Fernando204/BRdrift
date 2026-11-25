@@ -27,6 +27,9 @@
   </section>
   <section id="scr-opt" class="scr" hidden>
     <h2>Opções</h2>
+    <div class="row graphic-row"><span>Qualidade gráfica</span><div class="seg" id="o-quality"><button data-v="0">Baixa</button><button data-v="1">Média</button><button data-v="2">Alta</button></div></div>
+    <div class="row graphic-row"><span>Sombras</span><div class="seg" id="o-shadow"><button data-v="0">Desativadas</button><button data-v="1">Ativadas</button></div></div>
+    <div class="row graphic-row"><label for="o-distance">Distância de renderização</label><span class="distance-control"><input id="o-distance" type="range" min="250" max="1200" step="50"><output id="o-distance-value" for="o-distance">700 m</output></span></div>
     <div class="row"><span>Câmbio</span><div class="seg" id="o-gb"><button data-v="0">Automático</button><button data-v="1">Manual</button></div></div>
     <div class="row"><span>Direção</span><div class="seg" id="o-dm"><button data-v="0">Normal</button><button data-v="1">Drift</button></div></div>
     <div class="row"><span>Horário</span><div class="seg" id="o-nt"><button data-v="0">Dia</button><button data-v="1">Noite</button></div></div>
@@ -52,12 +55,22 @@
   <div id="sp" class="p"><canvas id="gg" width="340" height="170"></canvas></div>
   <div id="help" class="p">Q/E setas · H alerta · L faróis · N noite · Shift/Ctrl marchas · T manual · P cor · R pista</div>
   <div id="sg"><span id="sl">◀</span><span id="hl">💡</span><span id="sr">▶</span></div>
+  <div id="aim" hidden aria-hidden="true"></div>
   <div id="msg"></div>
   <div id="acao"></div>
   <button id="pbtn" class="p">☰ Menu</button>
   <button id="bmodo" class="p">🚗 Modo normal</button>
+  <button id="editMode" class="p" aria-pressed="true">✎ Edição: ligada</button>
 </div>
 <div id="dest" class="p" hidden></div>
+<aside id="customPanel" hidden aria-labelledby="customTitle">
+  <div class="custom-head"><div><small>PERSONALIZAÇÃO</small><h2 id="customTitle"></h2></div><button id="customClose" class="custom-x" type="button" aria-label="Concluir e fechar">×</button></div>
+  <label class="custom-color-row"><span>Cor da peça</span><input id="customColor" type="color" value="#e7e7e3" aria-label="Selecionar cor"></label>
+  <label class="custom-hex-row"><span>Hexadecimal</span><input id="customHex" type="text" value="#E7E7E3" maxlength="7" spellcheck="false" aria-label="Código hexadecimal da cor"></label>
+  <div id="customPalette" class="custom-palette" aria-label="Paleta de cores"></div>
+  <button id="customReset" class="custom-reset" type="button">Restaurar cor original</button>
+  <button id="customDone" class="btn pri" type="button">Concluir</button>
+</aside>
 
 <!-- Mapa em tela cheia com GPS (cidade) -->
 <div id="gps" hidden>

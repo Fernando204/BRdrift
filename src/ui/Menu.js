@@ -7,7 +7,7 @@ import { ACTIONS } from '../systems/InputSystem.js';
  */
 export class Menu {
   /**
-   * @param actions { start, resume, restart, pause, selectMap, setGearbox, setDriveMode, setNight, setColor, setVolume }
+   * @param actions { start, resume, restart, pause, selectMap, setGearbox, setDriveMode, setNight, setColor, setVolume, setGraphicsQuality, setShadows, setRenderDistance }
    */
   constructor(game, actions) {
     this.game = game;
@@ -23,6 +23,9 @@ export class Menu {
     $('o-dm').onclick = this.#segment(v => actions.setDriveMode(v === 1));
     $('o-nt').onclick = this.#segment(v => actions.setNight(v === 1));
     $('o-map').onclick = this.#segment(v => actions.selectMap(v === 1 ? 'salto' : 'circuito'));
+    $('o-quality').onclick = this.#segment(v => actions.setGraphicsQuality(['low', 'medium', 'high'][v]));
+    $('o-shadow').onclick = this.#segment(v => actions.setShadows(v === 1));
+    $('o-distance').oninput = e => actions.setRenderDistance(+e.target.value);
     $('o-vol').oninput = e => actions.setVolume(e.target.value / 100);
     $('ctlList').onclick = e => {
       const b = e.target.closest('.kbtn');
@@ -124,6 +127,10 @@ export class Menu {
     toggle('o-dm', v => (v === 1) === s.driftMode);
     toggle('o-gb', v => (v === 1) === s.manualGearbox);
     toggle('o-nt', v => (v === 1) === s.night);
+    toggle('o-quality', v => v === ['low', 'medium', 'high'].indexOf(s.graphicsQuality));
+    toggle('o-shadow', v => (v === 1) === s.shadows);
+    $('o-distance').value = s.renderDistance;
+    $('o-distance-value').value = s.renderDistance + ' m';
     const colors = this.game.vehicleColors, swatches = $('o-col');
     if (!swatches.children.length) {
       colors.forEach((c, i) => {

@@ -4,7 +4,9 @@ import { WebGLRenderer, PCFSoftShadowMap, ACESFilmicToneMapping } from 'three';
 export class Renderer {
   constructor(container = document.body) {
     this.renderer = new WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.quality = 'medium';
+    this.lowPower = false;
+    this.setQuality(this.quality);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFSoftShadowMap;
     this.renderer.toneMapping = ACESFilmicToneMapping;
@@ -22,7 +24,18 @@ export class Renderer {
 
   /** Telas de toque: menos pixels por quadro. */
   enableLowPower() {
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    this.lowPower = true;
+    this.#applyPixelRatio();
+  }
+
+  setQuality(quality) {
+    this.quality = quality;
+    this.#applyPixelRatio();
+  }
+
+  #applyPixelRatio() {
+    const maxRatio = { low: 0.75, medium: 1.25, high: 2 }[this.quality];
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, maxRatio, this.lowPower ? 1.5 : Infinity));
   }
 
   render(scene, camera) {
