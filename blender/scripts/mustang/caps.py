@@ -13,7 +13,7 @@ def face_y(x, z, front, y0):
     if front:
         # o centro avança 18 cm além da última seção e recua em curva até os faróis (y -2,08 em x 0,75)
         d = float(np.interp(z, [0.30, 0.40, 0.50, 0.62, 0.72, 0.90, 0.95, 1.00], [0.06, 0.10, 0.14, 0.165, 0.18, 0.18, 0.16, 0.11]))
-        return y0 - d * (1 - ax ** 3)
+        return y0 - d * (1 - ax ** 6)          # frente quase plana: faróis quase alinhados com a grade (foto)
     # traseira: painel traseiro côncavo (2,20 no centro) e pontas dos para-lamas recuadas para trás (2,28)
     e = float(np.interp(z, [0.30, 0.40, 0.55, 0.65, 0.90, 0.95, 1.00], [0.04, 0.06, 0.09, 0.10, 0.10, 0.075, 0.03]))
     corner = float(np.interp(z, [0.40, 0.55, 0.84, 0.93], [0.4, 0.8, 0.8, 0.0]))     # pontas dos para-lamas, sem "chifres" no alto

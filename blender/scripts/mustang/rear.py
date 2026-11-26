@@ -73,11 +73,8 @@ def build():
     P["new_object"]("Traseira_Cromados", bm_c, [M["chrome"]])
     # -------- para-choque traseiro
     bm = bmesh.new()
-    path = [Vector((x, 2.288 - 0.05 * (abs(x) / 0.84) ** 2.4, 0.615)) for x in np.linspace(-0.84, 0.84, 43)]
-    for s in (1, -1):
-        tip = [Vector((s * (0.84 + 0.03 * math.sin(a)), 2.238 - 0.10 * (1 - math.cos(a)), 0.615)) for a in np.linspace(0.25, math.pi / 2, 6)]
-        path = (path + tip) if s > 0 else (tip[::-1] + path)
-    section = [(-0.03, 0.052), (0.0, 0.05), (0.013, 0.04), (0.019, 0.016), (0.02, -0.008), (0.015, -0.03), (0.004, -0.044), (-0.02, -0.048)]
+    path = F["body_outline"](["Traseira_Tampa", "Carroceria"], 0.615, False, gap_center=0.05, gap_side=0.025, wrap_to=2.02)
+    section = [(-0.03, 0.048), (0.0, 0.046), (0.012, 0.037), (0.017, 0.015), (0.018, -0.007), (0.014, -0.027), (0.004, -0.04), (-0.02, -0.044)]
     F["sweep"](bm, path, section, center=Vector((0, 1.7, 0)))
     P["new_object"]("Para_Choque_Traseiro", bm, [M["chrome"]])
     # -------- luzes de ré (retangulares, na saia abaixo do para-choque)

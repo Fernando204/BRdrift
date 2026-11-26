@@ -25,9 +25,11 @@ _p = next(n for n in GRADE.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
 _p.inputs["Base Color"].default_value = (0.03, 0.03, 0.035, 1); _p.inputs["Roughness"].default_value = 0.35; _p.inputs["Metallic"].default_value = 0.6
 GRADE.diffuse_color = (0.03, 0.03, 0.035, 1)
 
-MOUTH = dict(x=0.605, z0=0.645, z1=0.905, r=0.075)       # boca da grade (meia largura, base, topo, raio dos cantos)
+# medidas tiradas da foto (metade da frente mais próxima da câmera): a grade é bem mais estreita que o
+# vão entre os faróis (sobra painel da cor do carro entre a grade e cada farol) e fica na altura dos faróis
+MOUTH = dict(x=0.45, z0=0.69, z1=0.915, r=0.07)            # boca da grade (meia largura, base, topo, raio dos cantos)
 HEAD = dict(x=0.715, z=0.805, r=0.093)                     # faróis (centro e raio do aro)
-FOG = dict(x=0.455, z=0.775, r=0.052)                      # faróis de neblina (GT)
+FOG = dict(x=0.35, z=0.79, r=0.05)                         # faróis de neblina (GT), nas pontas da grade
 
 def mouth_outline(n_side=8):
     m = MOUTH; pts = []
@@ -86,7 +88,7 @@ def build():
         f = bm.faces.new([front_ring[k], back_ring[k], back_ring[(k + 1) % n], front_ring[(k + 1) % n]]); f.material_index = 1
     f = bm.faces.new(back_ring[::-1]); f.material_index = 1
     # grade em colmeia: barras finas verticais e horizontais logo à frente do fundo
-    xs = np.linspace(-MOUTH["x"] + 0.03, MOUTH["x"] - 0.03, 31); zs = np.linspace(MOUTH["z0"] + 0.02, MOUTH["z1"] - 0.02, 9)
+    xs = np.linspace(-MOUTH["x"] + 0.03, MOUTH["x"] - 0.03, 24); zs = np.linspace(MOUTH["z0"] + 0.02, MOUTH["z1"] - 0.02, 8)
     for x in xs:
         bmesh.ops.create_cube(bm, size=1, matrix=Matrix.LocRotScale((x, GY - 0.012, (zs[0] + zs[-1]) / 2), None, (0.006, 0.02, zs[-1] - zs[0])))
     for z in zs:
@@ -99,11 +101,11 @@ def build():
     bar = [Vector((x, GY - 0.045, FOG["z"])) for x in np.linspace(-FOG["x"] + FOG["r"], FOG["x"] - FOG["r"], 12)]
     P["tube"](bm, bar, 0.009, sides=8, mat_index=0)
     frame = []
-    for x, z in [(-0.085, 0.725), (0.085, 0.725), (0.085, 0.83), (-0.085, 0.83)]:
+    for x, z in [(-0.08, FOG["z"] - 0.05), (0.08, FOG["z"] - 0.05), (0.08, FOG["z"] + 0.05), (-0.08, FOG["z"] + 0.05)]:
         frame.append(Vector((x, GY - 0.05, z)))
     P["tube"](bm, P["resample"](frame, 0.02, True), 0.008, closed=True, sides=8, mat_index=0)
     # placa central lisa (sem logotipo)
-    bmesh.ops.create_cube(bm, size=1, matrix=Matrix.LocRotScale((0, GY - 0.044, 0.7775), None, (0.15, 0.006, 0.09)))
+    bmesh.ops.create_cube(bm, size=1, matrix=Matrix.LocRotScale((0, GY - 0.044, FOG["z"]), None, (0.14, 0.006, 0.085)))
     P["new_object"]("Grade_Cromados", bm, [M["chrome"]])
     # -------- faróis: caneca, aro cromado e lente; faróis de neblina na grade
     bm = bmesh.new()
@@ -146,15 +148,9 @@ def build():
     P["new_object"]("Neblina_Aros", bm, [M["chrome"]])
     # -------- para-choque dianteiro (lâmina cromada que contorna as quinas)
     bm = bmesh.new()
-    path = []
-    for x in np.linspace(-0.84, 0.84, 43):
-        ax = abs(x); y = -2.300 + 0.115 * (ax / 0.84) ** 2.6
-        path.append(Vector((x, y, 0.556)))
-    # dobra das pontas para trás (contorno da quina)
-    for s in (1, -1):
-        tip = [Vector((s * (0.84 + 0.035 * math.sin(a)), -2.185 + 0.11 * (1 - math.cos(a)), 0.556)) for a in np.linspace(0.25, math.pi / 2, 6)]
-        path = (path + tip) if s > 0 else (tip[::-1] + path)
-    section = [(-0.03, 0.056), (0.0, 0.054), (0.014, 0.044), (0.02, 0.02), (0.022, -0.005), (0.017, -0.03), (0.005, -0.046), (-0.02, -0.05)]
+    path = body_outline(["Frente_Tampa", "Paralama_Esquerdo", "Paralama_Direito", "Carroceria"], 0.556, True,
+                        gap_center=0.07, gap_side=0.03, wrap_to=-1.96)
+    section = [(-0.03, 0.05), (0.0, 0.048), (0.013, 0.039), (0.018, 0.018), (0.02, -0.004), (0.015, -0.026), (0.004, -0.04), (-0.02, -0.044)]
     sweep(bm, path, section)
     P["new_object"]("Para_Choque_Dianteiro", bm, [M["chrome"]])
     # -------- setas (luzes de posição) redondas na saia, abaixo do para-choque
@@ -167,6 +163,44 @@ def build():
         for k in range(20): bm.faces.new([c, ring[(k + 1) % 20], ring[k]])
     P["new_object"]("Setas_Dianteiras", bm, [LA])
     tbm.free()
+
+def body_outline(names, z, front, gap_center=0.06, gap_side=0.03, wrap_to=-1.96):
+    """Contorno da carroceria na altura z (vista de cima), afastado 'gap' para fora: caminho de um
+    para-choque que acompanha a frente/traseira e dobra nas quinas até 'wrap_to' (em y)."""
+    bm = bmesh.new()
+    for n in names:
+        o = bpy.data.objects.get(n)
+        if o: bm.from_mesh(o.data)
+    tree = BVHTree.FromBMesh(bm)
+    sgn = -1 if front else 1
+    face = []
+    for x in np.linspace(-0.80, 0.80, 41):
+        h = tree.ray_cast(Vector((x, sgn * 4.0, z)), Vector((0, -sgn, 0)))
+        if h[0]: face.append(Vector((x, h[0].y, z)))
+    corners = {}
+    for s in (1, -1):
+        edge_y = face[-1].y if s > 0 else face[0].y
+        pts = []
+        for y in np.linspace(edge_y - sgn * 0.02, wrap_to, 7):
+            h = tree.ray_cast(Vector((s * 2.0, y, z)), Vector((-s, 0, 0)))
+            if h[0] and h[0].x * s > 0.5: pts.append(Vector((h[0].x, y, z)))
+        corners[s] = pts
+    path = corners[-1][::-1] + face + corners[1]
+    bm.free()
+    center = Vector((0, sgn * 1.7, z))
+    out = []
+    n = len(path)
+    for i, p in enumerate(path):
+        a = path[max(i - 1, 0)]; b = path[min(i + 1, n - 1)]
+        t = (b - a); t.z = 0; t.normalize()
+        nrm = Vector((t.y, -t.x, 0))
+        if nrm.dot(Vector((p.x - center.x, p.y - center.y, 0))) < 0: nrm = -nrm
+        g = gap_side + (gap_center - gap_side) * max(0.0, 1 - abs(p.x) / 0.8) ** 0.5
+        out.append(p + nrm * g)
+    # suaviza o caminho (sem quinas vivas)
+    for _ in range(3):
+        out = [out[0]] + [(out[i - 1] + out[i] * 2 + out[i + 1]) / 4 for i in range(1, len(out) - 1)] + [out[-1]]
+    return out
 
 def sweep(bm, path, section, center=None):
     """Varre a seção (deslocamento para fora, altura) ao longo do caminho horizontal.

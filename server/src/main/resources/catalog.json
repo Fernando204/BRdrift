@@ -47,7 +47,7 @@
       "price": 1000,
       "starter": false,
       "defaultColor": "#6e1923",
-      "maxDropCm": 5,
+      "maxDropCm": 3,
       "parts": [
         { "id": "Capo", "name": "Capô" },
         { "id": "Cabine", "name": "Teto e colunas" },

@@ -2,7 +2,7 @@
 # Como usar, com blender/mustang.blend aberto no Blender (console Python ou aba Scripting):
 #   ns = {}; exec(open(r"<repo>/blender/scripts/mustang/rebuild_all.py", encoding="utf-8").read(), ns)
 #   bpy.app.driver_namespace["mustang_rebuild"] = ns
-#   ns["run"](("body", "front", "rear", "side", "interior", "assemble"))
+#   ns["run"](("body", "front", "rear", "side", "interior", "assemble", "lower"))
 # Depois exporte a coleção "Mustang" para blender/export/mustang.glb e rode: npm run optimize:mustang && npm run embed
 # A superfície "Ref_Externa" (coleção Referencia_IA) é a malha antiga, usada só como medida das seções.
 import os
@@ -54,18 +54,56 @@ def apply_bool(target, cutter, op):
     bm.free(); tbm.free()
     return len(extra)
 
-def arches():
-    body = bpy.data.objects["Carroceria_Grade"]
-    AXLES = (-1.432, 1.365); R = 0.395; AZ = 0.3355
-    for i, ay in enumerate(AXLES):
-        for sx in (1, -1):
-            bm = bmesh.new()
-            bmesh.ops.create_cone(bm, cap_ends=True, segments=64, radius1=R, radius2=R, depth=0.7,
-                                  matrix=Matrix.Translation((sx * 0.92, ay, AZ)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
-            me = bpy.data.meshes.new("tmp_corte"); bm.to_mesh(me); bm.free()
-            c = bpy.data.objects.new("tmp_corte", me); bpy.context.scene.collection.objects.link(c)
-            apply_bool(body, c, 'DIFFERENCE')
-            bpy.data.objects.remove(c); bpy.data.meshes.remove(me)
+# ---------------------------------------------------------------- correção de altura (foto do carro real)
+# O gabarito (malha da IA) é alto demais: comparando com a foto (câmera reconstruída pelas rodas), a
+# carroceria fica ~10 cm acima do real, a lateral é "grossa" e os vidros, baixos. A correção é um
+# mapeamento de altura aplicado a tudo depois de montado (menos rodas): assoalho 0,26 -> 0,20,
+# cintura 0,985 -> 0,89 e teto 1,324 -> 1,285 (vidros mais altos); a frente ainda desce até 4,5 cm
+# em direção à ponta (capô e para-lamas caem para a frente, como no carro).
+ZMAP = dict(floor=(0.26, 0.20), belt=(0.985, 0.89), roof=(1.324, 1.285), front_drop=0.045)
+ARCH_R = 0.365          # borda da caixa de roda: ~3 cm acima do pneu (raio 0,3355)
+
+def zmap(x, y, z):
+    (f0, f1), (b0, b1), (r0, r1) = ZMAP["floor"], ZMAP["belt"], ZMAP["roof"]
+    if z <= f0: zz = z * f1 / f0
+    elif z <= b0: zz = f1 + (z - f0) * (b1 - f1) / (b0 - f0)
+    else: zz = b1 + (z - b0) * (r1 - b1) / (r0 - b0)
+    t = min(max((-0.50 - y) / 1.70, 0.0), 1.0); t = t * t * (3 - 2 * t)
+    zz -= ZMAP["front_drop"] * t * min(max((z - 0.40) / 0.45, 0.0), 1.0)
+    return zz
+
+def apply_zmap():
+    col = bpy.data.collections["Mustang"]
+    for o in col.objects:
+        if o.name.startswith("Roda_") or o.name == "Volante_Aro": continue
+        if o.type == 'EMPTY':
+            if o.name == "Volante":
+                p = o.location; o.location.z = zmap(p.x, p.y, p.z)
+            continue
+        me = o.data; mw = o.matrix_world
+        if mw != Matrix.Identity(4):
+            me.transform(mw); o.matrix_world = Matrix.Identity(4)
+        co = np.empty(len(me.vertices) * 3, np.float32); me.vertices.foreach_get("co", co); co = co.reshape(-1, 3)
+        co[:, 2] = [zmap(x, y, z) for x, y, z in co]
+        me.vertices.foreach_set("co", co.ravel()); me.update()
+
+def cut_arches(targets, R=ARCH_R):
+    AXLES = (-1.432, 1.365); AZ = 0.3355
+    for name in targets:
+        ob = bpy.data.objects[name]
+        for ay in AXLES:
+            for sx in (1, -1):
+                bm = bmesh.new()
+                bmesh.ops.create_cone(bm, cap_ends=True, segments=64, radius1=R, radius2=R, depth=0.7,
+                                      matrix=Matrix.Translation((sx * 0.92, ay, AZ)) @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+                me = bpy.data.meshes.new("tmp_corte"); bm.to_mesh(me); bm.free()
+                c = bpy.data.objects.new("tmp_corte", me); bpy.context.scene.collection.objects.link(c)
+                apply_bool(ob, c, 'DIFFERENCE')
+                bpy.data.objects.remove(c); bpy.data.meshes.remove(me)
+
+def arches(cut=True, R=0.395):
+    if cut: cut_arches(["Carroceria_Grade"], R)
+    AXLES = (-1.432, 1.365); AZ = 0.3355
     # caixas de roda internas
     bm = bmesh.new()
     for ay in AXLES:
@@ -133,12 +171,15 @@ def materials():
 
 def run(stages=("body", "front")):
     clear()
+    vol = bpy.data.objects.get("Volante")
+    if vol: vol.location = (0.38, -0.12, 0.93)      # posição de projeto (antes da correção de altura)
     ns = load("body", "mustang_ns"); load("caps", "mustang_caps"); pns = load("panels", "mustang_panels"); load("greenhouse", "mustang_gh")
     ys, secs = ns["build"]()
     ns["to_mesh"](ys, secs, "Carroceria_Grade")
     D["mustang_caps"]["build_cap"](secs[0], True, "Frente_Tampa", rings=10)
     D["mustang_caps"]["build_cap"](secs[-1], False, "Traseira_Tampa", rings=10)
-    arches()
+    lower = "lower" in stages
+    if not lower: arches()            # com a correção de altura, as caixas de roda são cortadas no fim
     greenhouse()
     materials()
     made = pns["split"]("Carroceria_Grade")
@@ -149,5 +190,10 @@ def run(stages=("body", "front")):
     if "side" in stages: load("side", "mustang_side")["build"]()
     if "interior" in stages: load("interior", "mustang_interior")["build"]()
     if "assemble" in stages: print("porta:", load("assemble", "mustang_assemble")["build"]())
+    if lower:
+        apply_zmap()
+        # caixas de roda cortadas na posição real das rodas, depois de baixar a carroceria
+        cut_arches([n for n in ("Carroceria", "Paralama_Esquerdo", "Paralama_Direito", "Carroceria_Grade") if bpy.data.objects.get(n)])
+        arches(cut=False, R=ARCH_R)
     bpy.ops.object.select_all(action='DESELECT')
     return made

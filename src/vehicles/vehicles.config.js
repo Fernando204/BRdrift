@@ -201,11 +201,11 @@ export const VEHICLES = {
       tail: 'Lente_Vermelha',
       reverse: 'Lente_Re_Branca',
       indicator: 'Lente_Ambar',
-      headlightOffset: [0.715, 0.805, 2.1],
+      headlightOffset: [0.715, 0.68, 2.065],
     },
 
-    cockpitCamera: [0.38, 1.12, -0.33],
-    driverSeat: { position: [0.38, -0.39, -0.19], tilt: -0.15, scale: 0.92 },
+    cockpitCamera: [0.38, 1.047, -0.33],
+    driverSeat: { position: [0.38, -0.463, -0.19], tilt: -0.15, scale: 0.92 },
     bodyHalfSize: [0.88, 2.31],
     tireContacts: [[0.728, 1.432, 0], [-0.728, 1.432, 0], [0.73, -1.365, 1], [-0.73, -1.365, 1]],
 
@@ -227,7 +227,7 @@ export const VEHICLES = {
 
     sound: { baseFrequency: 28, frequencyRange: 96 },
 
-    /** Rebaixamento máximo (m): a caixa de roda (raio 0,395) deixa ~6 cm acima do pneu. */
-    suspension: { maxDrop: 0.055 },
+    /** Rebaixamento máximo (m): baixo como o carro real, sobra só ~3 cm entre o pneu e a borda do para-lama. */
+    suspension: { maxDrop: 0.028 },
   },
 };
