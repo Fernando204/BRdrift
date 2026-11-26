@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class CarCatalog {
     public record Part(String id, String name, String defaultColor) {}
-    /** starter: pode ser escolhido de graça no primeiro acesso (os outros só na loja). */
-    public record Car(String id, String name, int price, boolean starter, String defaultColor, int maxDropCm, List<Part> parts) {
+    /** starter: pode ser escolhido de graça no primeiro acesso (os outros só na loja); tankLiters: tanque do carro real. */
+    public record Car(String id, String name, int price, boolean starter, String defaultColor, int maxDropCm, double tankLiters, List<Part> parts) {
         public String defaultColorOf(String partId) {
             return parts.stream().filter(p -> p.id().equals(partId)).findFirst()
                     .map(p -> p.defaultColor() != null ? p.defaultColor() : defaultColor).orElse(defaultColor);

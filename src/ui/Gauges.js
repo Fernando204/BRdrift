@@ -33,7 +33,25 @@ export class Gauges {
     g.restore();
   }
 
-  draw(ctrl) {
+  /** Marcador de combustível na parte de baixo do velocímetro (E ... F), com luz da reserva. */
+  #fuel(fuel) {
+    const g = this.g, x0 = 228, x1 = 292, y = 156, f = Math.max(0, Math.min(1, fuel.fraction)), low = fuel.inReserve;
+    const blink = low && Math.floor(performance.now() / 500) % 2 === 0;
+    g.fillStyle = 'rgba(255,255,255,.18)', g.fillRect(x0, y - 3, x1 - x0, 6);
+    g.fillStyle = low ? '#ff9f1a' : '#fff', g.fillRect(x0, y - 3, (x1 - x0) * f, 6);
+    g.fillStyle = '#fff';
+    for (let i = 1; i < 4; i++) g.fillRect(x0 + (x1 - x0) * i / 4 - 0.5, y - 5, 1, 2);
+    g.font = '700 9px system-ui,sans-serif', g.textAlign = 'center', g.textBaseline = 'middle';
+    g.fillStyle = low ? '#ff9f1a' : 'rgba(255,255,255,.8)', g.fillText('E', x0 - 7, y), g.fillStyle = 'rgba(255,255,255,.8)', g.fillText('F', x1 + 7, y);
+    // bomba (acende em laranja na reserva)
+    g.fillStyle = blink || (low && fuel.liters < 0.02) ? '#ff9f1a' : low ? 'rgba(255,159,26,.45)' : 'rgba(255,255,255,.55)';
+    const ix = 206, iy = y - 6;
+    g.fillRect(ix, iy, 7, 12), g.fillStyle = '#0c1018', g.fillRect(ix + 1.5, iy + 2, 4, 3.5);
+    g.strokeStyle = g.fillStyle = blink || low ? '#ff9f1a' : 'rgba(255,255,255,.55)', g.lineWidth = 1.2;
+    g.beginPath(), g.moveTo(ix + 7, iy + 3), g.lineTo(ix + 10, iy + 5), g.lineTo(ix + 10, iy + 10), g.stroke();
+  }
+
+  draw(ctrl, fuel = null) {
     const g = this.g, kmh = ctrl.speedMs * 3.6, rpm = ctrl.rpm, s = ctrl.state;
     g.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
     g.clearRect(0, 0, WIDTH, HEIGHT);
@@ -47,5 +65,6 @@ export class Gauges {
     g.fillStyle = ctrl.driftMode ? '#ff6b4a' : '#8fd3ff', g.font = '600 10px system-ui,sans-serif';
     g.fillText(ctrl.driftMode ? 'DRIFT' : 'NORMAL', 170, 142);
     if (rpm > 6400 && Math.floor(performance.now() / 90) % 2) g.fillStyle = '#ff3b30', g.beginPath(), g.arc(170, 30, 8, 0, 7), g.fill();
+    if (fuel) this.#fuel(fuel);
   }
 }

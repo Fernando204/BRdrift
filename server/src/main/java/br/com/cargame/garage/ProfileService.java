@@ -3,6 +3,7 @@ package br.com.cargame.garage;
 import br.com.cargame.auth.UserAccount;
 import br.com.cargame.auth.UserAccountRepository;
 import br.com.cargame.common.ApiException;
+import br.com.cargame.fuel.FuelService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,22 +13,25 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProfileService {
     private final UserAccountRepository users;
+    private final FuelService fuel;
 
-    public ProfileService(UserAccountRepository users) {
+    public ProfileService(UserAccountRepository users, FuelService fuel) {
         this.users = users;
+        this.fuel = fuel;
     }
 
     /** Aparência de um carro: o que os outros jogadores precisam para desenhá-lo. */
     public record Look(String carId, Map<String, String> colors, double lowering) {}
 
+    /** fuel: litros no tanque de cada carro da garagem. */
     public record Profile(String username, long coins, String selectedCar, boolean needsStarter,
-                          List<Look> cars, long bestDrift, long totalDriftPoints) {}
+                          List<Look> cars, long bestDrift, long totalDriftPoints, Map<String, Double> fuel) {}
 
     public Profile profile(String userId) {
         UserAccount u = user(userId);
         List<Look> owned = u.getCars().stream().map(ProfileService::look).toList();
         return new Profile(u.getUsername(), u.getCoins(), u.getSelectedCar(), owned.isEmpty(), owned,
-                u.getBestDrift(), u.getTotalDriftPoints());
+                u.getBestDrift(), u.getTotalDriftPoints(), fuel.levels(u));
     }
 
     /** Aparência do carro selecionado (usada nas salas multiplayer). */

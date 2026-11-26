@@ -19,16 +19,18 @@ public class GarageController {
     private final ProfileService profiles;
     private final CarCatalog catalog;
     private final GameProperties.Economy economy;
+    private final GameProperties.Fuel fuel;
 
     public GarageController(GarageService garage, ProfileService profiles, CarCatalog catalog, GameProperties props) {
         this.garage = garage;
         this.profiles = profiles;
         this.catalog = catalog;
         this.economy = props.economy();
+        this.fuel = props.fuel();
     }
 
     public record CatalogResponse(List<CarCatalog.Car> cars, int paintPartPrice, double fullPaintDiscount,
-                                  int suspensionPricePerCm, double coinsPerPoint) {}
+                                  int suspensionPricePerCm, double coinsPerPoint, double fuelPricePerLiter) {}
     public record CarRequest(String carId) {}
     public record PaintRequest(String carId, Map<String, String> colors, String fullColor) {}
     public record SuspensionRequest(String carId, double lowering) {}
@@ -37,7 +39,7 @@ public class GarageController {
     @GetMapping("/catalog")
     public CatalogResponse catalog() {
         return new CatalogResponse(catalog.all(), economy.paintPartPrice(), economy.fullPaintDiscount(),
-                economy.suspensionPricePerCm(), economy.coinsPerPoint());
+                economy.suspensionPricePerCm(), economy.coinsPerPoint(), fuel.pricePerLiter());
     }
 
     @PostMapping("/garage/starter")

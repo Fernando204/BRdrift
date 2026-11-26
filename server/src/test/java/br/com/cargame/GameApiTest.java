@@ -185,6 +185,50 @@ class GameApiTest {
     }
 
     @Test
+    void combustivelSoDesceAoRodarESobeAbastecendoNoPosto() throws Exception {
+        Cookie c = register("Frentista1");
+        // carro recém-chegado: meio tanque (Chevette: 58 L)
+        mvc.perform(post("/api/garage/starter").cookie(c).contentType(MediaType.APPLICATION_JSON).content("{\"carId\":\"chevette\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.fuel.chevette").value(29.0));
+        // o jogo informa quanto resta: desce
+        mvc.perform(post("/api/fuel/report").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carId\":\"chevette\",\"liters\":20}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.fuel").value(20.0));
+        // informar mais do que tem não enche o tanque
+        mvc.perform(post("/api/fuel/report").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carId\":\"chevette\",\"liters\":50}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.fuel").value(20.0));
+        giveCoins("Frentista1", 100);
+        // 10 L a 6 moedas
+        mvc.perform(post("/api/fuel/refill").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carId\":\"chevette\",\"currentLiters\":20,\"liters\":10}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.liters").value(10.0)).andExpect(jsonPath("$.cost").value(60))
+                .andExpect(jsonPath("$.fuel").value(30.0)).andExpect(jsonPath("$.coins").value(40));
+        // pede 100 L com 40 moedas: leva o que dá para pagar (6,6 L por 40)
+        mvc.perform(post("/api/fuel/refill").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carId\":\"chevette\",\"currentLiters\":30,\"liters\":100}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.liters").value(6.6)).andExpect(jsonPath("$.cost").value(40))
+                .andExpect(jsonPath("$.fuel").value(36.6)).andExpect(jsonPath("$.coins").value(0));
+        // pane seca e sem moedas: o frentista dá 5 L
+        mvc.perform(post("/api/fuel/report").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"carId\":\"chevette\",\"liters\":0.5}")).andExpect(status().isOk());
+        mvc.perform(post("/api/fuel/refill").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carId\":\"chevette\",\"currentLiters\":0.5,\"liters\":30}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.courtesy").value(true)).andExpect(jsonPath("$.cost").value(0))
+                .andExpect(jsonPath("$.fuel").value(5.5));
+        // com combustível e sem moedas: não abastece
+        mvc.perform(post("/api/fuel/refill").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carId\":\"chevette\",\"currentLiters\":5.5,\"liters\":10}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("insufficient_coins"));
+        // carro que não é dele
+        mvc.perform(post("/api/fuel/report").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"carId\":\"mustang\",\"liters\":1}")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/me").cookie(c)).andExpect(jsonPath("$.fuel.chevette").value(5.5));
+        mvc.perform(get("/api/catalog")).andExpect(jsonPath("$.fuelPricePerLiter").value(6.0))
+                .andExpect(jsonPath("$.cars[0].tankLiters").value(58.0));
+    }
+
+    @Test
     void indiceUnicoBarraNomeRepetidoMesmoSemPassarPelaApi() {
         users.save(new UserAccount("Duplo", "x"));
         assertThrows(DuplicateKeyException.class, () -> users.save(new UserAccount("duplo", "y")));

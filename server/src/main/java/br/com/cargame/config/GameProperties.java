@@ -4,7 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /** Configurações do jogo (application.yml, prefixo "game"). */
 @ConfigurationProperties(prefix = "game")
-public record GameProperties(String staticDir, Session session, Economy economy, Rooms rooms, Taxi taxi) {
+public record GameProperties(String staticDir, Session session, Economy economy, Rooms rooms, Taxi taxi, Fuel fuel) {
 
     public record Session(String cookieName, int days) {}
 
@@ -21,4 +21,7 @@ public record GameProperties(String staticDir, Session session, Economy economy,
 
     /** Modo táxi: bandeirada + preço por km da rota; limites para conferir a corrida. */
     public record Taxi(int baseFare, int perKm, int minRouteMeters, int maxRouteMeters, double maxAverageSpeed, int maxMinutes) {}
+
+    /** Combustível: preço do litro, nível de um carro recém-chegado e a "cortesia" em pane seca sem moedas. */
+    public record Fuel(double pricePerLiter, double startFraction, double courtesyLiters) {}
 }

@@ -21,6 +21,11 @@ export class Settings {
       for (const [id, v] of Object.entries(saved.low)) if (typeof v === 'number') this.lowering[id] = clamp(v, 0, 1);
     }
     this.driftMode = !!saved.drift;
+    // litros no tanque de cada carro (jogo offline; online o nível fica na conta)
+    this.fuel = {};
+    if (saved.fuel && typeof saved.fuel === 'object') {
+      for (const [id, v] of Object.entries(saved.fuel)) if (typeof v === 'number' && v >= 0) this.fuel[id] = v;
+    }
     this.graphicsQuality = ['low', 'medium', 'high'].includes(saved.gfx) ? saved.gfx : 'medium';
     // sombras: desligadas ou qualidade própria (antes só havia ligado/desligado em "shadow")
     this.shadowQuality = ['off', 'low', 'medium', 'high'].includes(saved.shadowQ)
@@ -47,6 +52,7 @@ export class Settings {
       car: this.vehicleId,
       low: this.lowering,
       drift: this.driftMode ? 1 : 0,
+      fuel: this.fuel,
       gfx: this.graphicsQuality,
       shadow: this.shadows,
       shadowQ: this.shadowQuality,

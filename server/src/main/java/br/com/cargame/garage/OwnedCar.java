@@ -13,6 +13,9 @@ public class OwnedCar {
     /** Rebaixamento de 0 (original) a 1 (máximo do carro). */
     private double lowering;
 
+    /** Litros no tanque (null: ainda não rodou; começa com parte do tanque). */
+    private Double fuel;
+
     protected OwnedCar() {}
 
     public OwnedCar(String carId) {
@@ -23,4 +26,6 @@ public class OwnedCar {
     public Map<String, String> getColors() { return colors == null ? (colors = new LinkedHashMap<>()) : colors; }
     public double getLowering() { return lowering; }
     public void setLowering(double lowering) { this.lowering = lowering; }
+    public Double getFuel() { return fuel; }
+    public void setFuel(Double fuel) { this.fuel = fuel; }
 }

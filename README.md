@@ -13,8 +13,10 @@ Com o servidor (pasta `server/`, Java + Spring Boot) o jogo tem conta, moedas, l
 
 - **Conta:** só nome de usuário (único, 3 a 20 caracteres) e senha (6 ou mais). O login fica num cookie de sessão por 30 dias.
 - **Primeiro carro:** no primeiro acesso você escolhe o Chevette ou a Saveiro de graça. O outro custa **1000 moedas** na Loja.
-- **Moedas:** vêm do drift. Os pontos sobem com velocidade × ângulo, e o combo (até ×4) cresce a cada 2 s de drift sem parar. Bater zera o drift. Ao terminar, cada ponto vale 0,02 moeda (5000 pts = 100 moedas). O servidor confere se a pontuação é possível antes de pagar.
+- **Moedas:** vêm do drift (nas salas online e no táxi; o treino solo não vale moedas) e das corridas de táxi. Os pontos sobem com velocidade × ângulo, e o combo (até ×4) cresce a cada 2 s de drift sem parar. Bater zera o drift. Ao terminar, cada ponto vale 0,02 moeda (5000 pts = 100 moedas). O servidor confere se a pontuação é possível antes de pagar.
 - **Táxi:** no modo táxi (Salto de Pirapora) um passageiro aparece numa calçada qualquer da cidade, marcado por um feixe amarelo e pelo GPS. Pare ao lado dele, espere ele entrar e siga o GPS até o destino (de 350 m a 2,2 km). Parando lá, ele desce e paga **10 moedas + 60 por km** da rota pelas ruas (1 km = 70, 3 km = 190). Sair do carro no meio do caminho cancela a corrida. O servidor recusa corridas impossíveis (rápidas demais ou sobrepostas).
+- **Combustível:** nas salas online e no táxi o carro gasta gasolina; no treino solo (e no circuito, que não tem posto) não. O tanque é de cada carro e fica salvo na conta: o que sobrou numa sala continua igual no táxi. Tanque e consumo são os dos carros reais (Chevette SL 1.6: 58 L, 10,4/13,7 km/l; Saveiro Robust 1.6: 55 L, 10,9/12,1 km/l; Mustang 1965 V8 289: 61 L, ~5,1/7,2 km/l na cidade/estrada); o consumo do jogo vem da potência e do giro do motor e é calibrado para chegar perto desses números. Carro novo vem com meio tanque.
+- **Postos:** os 7 postos de Salto de Pirapora que dava para localizar estão nos lugares reais (2 pelas coordenadas do OpenStreetMap, 5 estimados pelo endereço; ver `tools/gerar_postos.py`). Pare ao lado de uma bomba e desligue o motor: o frentista vem e completa o tanque, a **6 moedas o litro** (ou até onde as moedas dão). Ligar o motor ou "Parar de abastecer" encerra antes. Na reserva o GPS marca o posto mais perto; em pane seca, o guincho leva o carro até lá, e sem moedas o frentista dá 5 L de cortesia.
 - **Oficina:** escolha a cor e clique nas peças (150 moedas cada); pintar o carro inteiro custa a soma das peças com 10% de desconto. Baixar ou erguer a suspensão custa 30 moedas por centímetro alterado. A prévia aparece no carro antes de pagar.
 - **Salas:** a sala global (Salto de Pirapora, até 32 jogadores) é só entrar. Salas privadas têm nome, senha e mapa; cada jogador pode ter uma aberta, com até 8 pessoas, e ela fecha quando fica vazia.
 - **Ranking:** os 20 melhores drifts.
@@ -129,6 +131,8 @@ Preços e limites ficam em `server/src/main/resources/application.yml` (`game.ec
 | `POST /api/garage/paint` | pinta peças (`{carId, colors: {peça: "#rrggbb"}}`) ou o carro inteiro (`{carId, fullColor}`) |
 | `POST /api/garage/suspension` | altura (`{carId, lowering: 0..1}`) |
 | `POST /api/score/drift` | registra um drift (`{points, durationMs}`) e paga as moedas |
+| `POST /api/fuel/report` | informa quanto resta no tanque (`{carId, liters}`); o nível só desce |
+| `POST /api/fuel/refill` | abastece no posto (`{carId, currentLiters, liters}`) e cobra as moedas |
 | `GET /api/taxi/rates` | tabela do táxi (bandeirada, preço por km, limites da rota) |
 | `POST /api/taxi/fare` | registra uma corrida (`{routeMeters, straightMeters, durationMs}`) e paga as moedas |
 | `GET /api/leaderboard` | ranking |

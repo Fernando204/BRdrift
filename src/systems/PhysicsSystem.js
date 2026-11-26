@@ -95,6 +95,8 @@ export class PhysicsSystem {
       if (limited < drive - 1) K.tc = true;
       drive = limited;
     }
+    // potência na saída do motor (W): torque que chega às rodas convertido de volta × giro (consumo de combustível)
+    ctrl.enginePower = ratio === 0 ? 0 : Math.abs(drive) * R / (Math.abs(ratio) * 0.9) * engineRpm * Math.PI / 30;
     const engineBrake = ratio === 0 ? 0 : -dir * longFade * ((1 - throttle) * (150 + wheelRpm * 0.12) + Math.max(0, wheelRpm - 7200) * 1.5);
     ctrl.rpm += (engineRpm - ctrl.rpm) * Math.min(1, dt * 10);
     const resistance = -dir * longFade * (150 + 0.42 * vLong * vLong + (surface.onRoad ? 0 : 900));

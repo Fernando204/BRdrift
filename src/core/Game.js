@@ -29,6 +29,8 @@ import { Session } from '../net/Session.js';
 import { MultiplayerClient } from '../net/MultiplayerClient.js';
 import { RemotePlayers, STATE_FLAGS } from '../multiplayer/RemotePlayers.js';
 import { TaxiMode } from '../systems/TaxiMode.js';
+import { FuelSystem } from '../systems/FuelSystem.js';
+import { Refueling } from '../systems/Refueling.js';
 import { DriftScoring } from '../systems/DriftScoring.js';
 import { Showroom } from '../environment/Showroom.js';
 import { Interface } from '../ui/Interface.js';
@@ -91,6 +93,14 @@ export class Game {
     this.remote.groundAt = (x, z) => this.world.map?.surfaceHeight?.(x, z) ?? 0;   // altura do piso (asfalto acima do chão)
     this.matchRoom = null;
     this.taxi = new TaxiMode(this);
+    this.mode = null;                          // solo | room | taxi (partida em andamento)
+    this.fuel = new FuelSystem(this);
+    this.refuel = new Refueling(this);
+    this.fuel.onEmpty = () => this.hud.message('Pane seca! Acabou o combustível: chame o guincho', 5);
+    this.fuel.onReserve = () => this.hud.message(this.refuel.guideToNearest()
+      ? 'Combustível na reserva: o GPS mostra o posto mais perto' : 'Combustível na reserva: procure um posto', 4);
+    addEventListener('pagehide', () => this.fuel.flush(true));   // fechou a aba: grava o que resta no tanque
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.fuel.flush(true); });
     this.drift.onBank = (points, duration) => this.#bankDrift(points, duration);
     this.drift.onFail = () => this.hud.driftFail();
     this.mp.onPlayerJoin = p => { this.remote.add(p); this.iface.toast(`${p.name} entrou na sala`); };
@@ -282,12 +292,12 @@ export class Game {
   // ------------------------------------------------------------------ partidas
   /** Treino sozinho (online também vale moedas). */
   async playSolo(mapId) {
-    await this.#startMatch(mapId, null);
+    await this.#startMatch(mapId, null, 'solo');
   }
 
   /** Modo táxi (só na cidade): já começa dentro do carro, com o primeiro passageiro a caminho. */
   async playTaxi() {
-    await this.#startMatch('salto', null);
+    await this.#startMatch('salto', null, 'taxi');
     this.enterVehicle();
     this.taxi.start();
   }
@@ -305,7 +315,7 @@ export class Game {
     }
     this.remote.clear();
     try {
-      await this.#startMatch(welcome.room.map, welcome.room);
+      await this.#startMatch(welcome.room.map, welcome.room, 'room');
     } catch (err) {
       this.mp.leave();
       throw err;
@@ -313,7 +323,7 @@ export class Game {
     for (const p of welcome.players) this.remote.add(p);
   }
 
-  async #startMatch(mapId, room) {
+  async #startMatch(mapId, room, mode) {
     if (this.started) this.#endMatch();
     this.iface.loading('Montando o mapa\u2026');
     try {
@@ -322,9 +332,14 @@ export class Game {
       this.iface.loading(false);
     }
     this.matchRoom = room;
+    this.mode = mode;
     this.showroom.release(this.scene);
     this.#spawnVehicle(false);
     this.start();
+    // combustível: salas online e táxi, só na cidade (o circuito não tem posto); o treino solo não gasta
+    this.fuel.useCar(this.vehicleId, this.vehicles.config);
+    this.fuel.setEnabled(mode !== 'solo' && !!this.world.map.stations);
+    this.world.map.stations?.setPrice(this.fuel.price);
   }
 
   /** Texto da partida atual (pausa e menu). */
@@ -341,6 +356,9 @@ export class Game {
     this.remote.clear();
     this.matchRoom = null;
     if (this.taxi.active) this.taxi.stop();
+    this.refuel.reset();
+    this.fuel.setEnabled(false);
+    this.mode = null;
     this.started = false;
     this.paused = false;
     this.drift.reset();
@@ -367,7 +385,7 @@ export class Game {
   /** Drift terminado: online, o servidor confere e paga em moedas. */
   async #bankDrift(points, duration) {
     this.hud.driftBanked(points);
-    if (!this.session.loggedIn) return;
+    if (!this.session.loggedIn || this.mode === 'solo') return;   // treino solo não vale moedas
     try {
       const r = await this.api.bankDrift(points, duration);
       this.session.setCoins(r.coins);
@@ -427,6 +445,7 @@ export class Game {
       this.vehicleId = id;
       this.settings.vehicleId = id;
       this.#setupVehicle(keep);
+      if (this.started) this.fuel.useCar(id, this.vehicles.config);   // cada carro tem o seu tanque
       if (!this.player.inVehicle) this.player.character.standIn(this.scene, this.player.body.x, this.player.body.z, this.player.body.h);
       if (!this.started) this.showroom.show(this.vehicle);
       this.saveSettings();
@@ -502,7 +521,7 @@ export class Game {
     this.paused = false;
     this.iface.hide();
     this.hud.show();
-    this.hud.showCoins(this.session.loggedIn ? this.session.coins : null);
+    this.hud.showCoins(this.session.loggedIn && this.mode !== 'solo' ? this.session.coins : null);
     this.drift.reset();
     this.audio.init();
     this.player.exit(this.vehicle, this.controller, this.world.map);
@@ -730,6 +749,10 @@ export class Game {
   // ------------------------------------------------------------------ jogador e porta
   toggleIgnition() {
     if (!this.player.inVehicle || !this.vehicleReady) return;
+    if (!this.controller.engineOn && this.fuel.empty) {
+      this.hud.message('Sem combustível! Chame o guincho', 3);
+      return;
+    }
     if (this.controller.toggleIgnition()) this.audio.playStarter();
   }
 
@@ -765,6 +788,8 @@ export class Game {
     else if (id === 'reset') this.#spawnVehicle(true);
     else if (id === 'paint') this.#freePaint();
     else if (id === 'acao') this.primaryAction();
+    else if (id === 'guincho') this.refuel.tow();
+    else if (id === 'parar') this.refuel.stopFilling();
   }
 
   /** Tecla de ação: abre a porta, entra ou sai, conforme a situação. */
@@ -774,7 +799,14 @@ export class Game {
   }
 
   #availableActions() {
-    return this.player.availableActions(this.vehicle, this.controller, a => this.input.label(a));
+    const list = this.player.availableActions(this.vehicle, this.controller, a => this.input.label(a));
+    if (this.refuel.filling) list.push(['parar', 'Parar de abastecer', '']);
+    if (this.#needsTow()) list.push(['guincho', 'Chamar guincho', '']);
+    return list;
+  }
+
+  #needsTow() {
+    return this.player.inVehicle && this.fuel.empty && this.controller.speedMs < 1 && !!this.world.map?.stations;
   }
 
   // ------------------------------------------------------------------ quadro
@@ -809,18 +841,21 @@ export class Game {
       if (bench?.running) bench.afterPhysics();
       if (this.remote.count) this.remote.collideLocal(ctrl.state);
       this.drift.update(dt, ctrl, this.player.inVehicle);
+      this.fuel.update(dt, ctrl);
       monitor.end('physics');
       monitor.begin('world');
       if (!this.player.inVehicle) this.player.update(dt, this.input, map, ctrl.state, this.vehicles.config);
       ctrl.updateEngine(dt);
-      this.hud.updateActions(this.player.actionsKey(vehicle, ctrl) | (this.keyLabelsVersion << 8), this.availableActionsBuilder);
+      const extra = (this.refuel.filling ? 128 : 0) | (this.#needsTow() ? 256 : 0);
+      this.hud.updateActions(this.player.actionsKey(vehicle, ctrl) | extra | (this.keyLabelsVersion << 10), this.availableActionsBuilder);
       const focus = this.focus;
       if (map.gps) map.gps.update(focus, dt), this.hud.setDestination(map.gps);
       this.taxi.update(dt);
+      this.refuel.update(dt);
       this.skidMarks.update(ctrl.state, map);
       this.hud.setTimerText(map.timerText(now, focus));
       if (map.currentLap !== undefined && map.currentLap !== this.shownLap) this.shownLap = map.currentLap, this.hud.setLap(this.shownLap);
-      this.hud.draw(ctrl, map, focus, this.remote);
+      this.hud.draw(ctrl, map, focus, this.remote, this.fuel.enabled ? this.fuel : null);
       this.hud.setDrift(this.drift);
       const a = this.audioContext;
       a.engineLevel = ctrl.engineSound, a.throttle = ctrl.throttle, a.engineOn = ctrl.engineOn, a.skid = this.skidMarks.intensity, a.sound = this.vehicles.config.sound;

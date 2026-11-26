@@ -75,19 +75,19 @@
       </div>
       <div class="mode-card online-only">
         <div class="mode-icon global" aria-hidden="true"></div>
-        <div class="mode-text"><h3>Sala global</h3><p class="muted"><span id="global-count">0</span> jogando agora · Salto de Pirapora</p></div>
+        <div class="mode-text"><h3>Sala global</h3><p class="muted"><span id="global-count">0</span> jogando agora · Salto de Pirapora · gasta combustível</p></div>
         <button class="btn-primary" id="play-global">Entrar</button>
       </div>
       <div class="mode-card">
         <div class="mode-icon solo" aria-hidden="true"></div>
-        <div class="mode-text"><h3>Treino solo</h3><p class="muted"><span class="online-only">Sem outros jogadores; o drift também vale moedas.</span><span class="offline-only">Modo offline: nada é salvo.</span></p>
+        <div class="mode-text"><h3>Treino solo</h3><p class="muted"><span class="online-only">Sem outros jogadores, sem combustível e sem moedas: só para treinar.</span><span class="offline-only">Modo offline: nada é salvo.</span></p>
           <div class="chips" id="solo-map"><button data-map="circuito" class="on">Circuito</button><button data-map="salto">Salto de Pirapora</button></div>
         </div>
         <button class="btn" id="play-solo">Treinar</button>
       </div>
       <div class="mode-card">
         <div class="mode-icon taxi" aria-hidden="true"></div>
-        <div class="mode-text"><h3>Táxi</h3><p class="muted">Pegue passageiros pela cidade e leve ao destino: quanto mais longe, mais moedas. <span class="offline-only">Modo offline: nada é salvo.</span></p></div>
+        <div class="mode-text"><h3>Táxi</h3><p class="muted">Pegue passageiros pela cidade e leve ao destino: quanto mais longe, mais moedas. Gasta combustível. <span class="offline-only">Modo offline: nada é salvo.</span></p></div>
         <button class="btn" id="play-taxi">Dirigir</button>
       </div>
       <div class="offline-only">
@@ -199,6 +199,7 @@
   <div id="aim" hidden aria-hidden="true"></div>
   <div id="drift" class="drift" hidden><div class="drift-points" id="drift-points">0</div><div class="drift-combo"><span id="drift-combo">x1</span><i><b id="drift-bar"></b></i></div><div class="drift-label">DRIFT</div></div>
   <div id="hud-coins" class="hud-coins coins" hidden>0</div>
+  <div id="posto" class="p" hidden><div class="posto-tag">POSTO</div><div id="posto-title"></div><div id="posto-sub"></div></div>
   <div id="taxi" class="p" hidden><div class="taxi-tag">TÁXI</div><div id="taxi-title"></div><div id="taxi-sub"></div></div>
   <div id="msg"></div>
   <div id="acao"></div>

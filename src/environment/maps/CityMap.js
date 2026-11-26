@@ -10,6 +10,7 @@ import { disposeObject3D, freezeStatic } from '../../utils/Helpers.js';
 import { seededRandom } from '../../utils/MathUtils.js';
 import { ChunkGrid } from './city/ChunkGrid.js';
 import { ShadowCasters } from './city/ShadowCasters.js';
+import { GasStations, LOT_Y } from './city/GasStations.js';
 
 const WALLS = [
   ['#efe4cf', '#f3d9b8', '#e6ecef', '#f2e6a8', '#d9e8cf', '#f0d0c8', '#e2d4ef', '#fafafa'],   // casas
@@ -50,6 +51,7 @@ export class CityMap {
     const roads = D.ruas.map(r => ({ c: r[0], n: r[1], P: r.slice(2).map(v => v / 10) }));
     this.network = new RoadNetwork(roads, D.larguras);
     this.#buildRoads(roads, D);
+    this.stations = new GasStations(this.group);   // antes das construções: o terreno dos postos fica livre
     this.#buildBuildingsAndTrees(D);
     this.#buildMinimap(roads, D.larguras);
     this.gps = new GpsRoute(this.network, this.names, this.group);
@@ -168,32 +170,45 @@ export class CityMap {
 
     // construções: [x, z, ângulo*10 (graus), largura, profundidade, altura (dm), tipo, cor]
     this.buildingGrid = new Map();
-    const B = D.construcoes;
-    for (let k = 0; k < B.length; k += 8) {
-      const x = B[k] / 10, z = B[k + 1] / 10, a = B[k + 2] / 10 * Math.PI / 180, w = B[k + 3] / 10, d = B[k + 4] / 10, h = B[k + 5] / 10, type = B[k + 6], c = B[k + 7];
-      const bl = listFor(x, z);
-      q.setFromAxisAngle(up, -a);
-      bl.body.push([m.compose(pos.set(x, 0, z), q, scale.set(w, h, d)).clone(), WALLS[type][c]]);
-      if (type === 0) bl.roof.push([m.compose(pos.set(x, h, z), q, scale.set(w * 1.1, 1.5 + this.rand() * 0.8, d * 1.1)).clone(), ROOF_TILES[c]]);
-      else bl.slab.push([m.compose(pos.set(x, h, z), q, scale.set(w + 0.3, 0.35, d + 0.3)).clone(), null]);
-      const obstacle = [x, z, Math.cos(a), Math.sin(a), w / 2, d / 2], r = Math.hypot(w, d) / 2 + 2;
+    const addRect = obstacle => {   // [x, z, cos, sin, meia largura, meia profundidade]
+      const [x, z] = obstacle, r = Math.hypot(obstacle[4], obstacle[5]) + 2;
       for (let i = Math.floor((x - r) / OBSTACLE_CELL); i <= Math.floor((x + r) / OBSTACLE_CELL); i++)
         for (let j = Math.floor((z - r) / OBSTACLE_CELL); j <= Math.floor((z + r) / OBSTACLE_CELL); j++) {
           const hk = key(i, j);
           this.buildingGrid.has(hk) ? this.buildingGrid.get(hk).push(obstacle) : this.buildingGrid.set(hk, [obstacle]);
         }
+    };
+    const B = D.construcoes;
+    for (let k = 0; k < B.length; k += 8) {
+      const x = B[k] / 10, z = B[k + 1] / 10, a = B[k + 2] / 10 * Math.PI / 180, w = B[k + 3] / 10, d = B[k + 4] / 10, h = B[k + 5] / 10, type = B[k + 6], c = B[k + 7];
+      if (this.stations.overlapsLot(x, z, w, d, a)) {   // o posto ocupa o lugar (o sorteio continua igual para as outras)
+        if (type === 0) this.rand();
+        continue;
+      }
+      const bl = listFor(x, z);
+      q.setFromAxisAngle(up, -a);
+      bl.body.push([m.compose(pos.set(x, 0, z), q, scale.set(w, h, d)).clone(), WALLS[type][c]]);
+      if (type === 0) bl.roof.push([m.compose(pos.set(x, h, z), q, scale.set(w * 1.1, 1.5 + this.rand() * 0.8, d * 1.1)).clone(), ROOF_TILES[c]]);
+      else bl.slab.push([m.compose(pos.set(x, h, z), q, scale.set(w + 0.3, 0.35, d + 0.3)).clone(), null]);
+      addRect([x, z, Math.cos(a), Math.sin(a), w / 2, d / 2]);
     }
+    for (const o of this.stations.rects) addRect(o);   // ilhas de bombas e lojas dos postos
 
     // árvores: [x, z, escala*100]
     this.treeGrid = new Map();
     const A = D.arvores;
     for (let k = 0; k < A.length; k += 3) {
       const x = A[k] / 10, z = A[k + 1] / 10, s = A[k + 2] / 100;
+      if (this.stations.lotAt(x, z, 2.5)) { this.rand(), this.rand(); continue; }
       scale.set(s, s, s);
       const trunk = m.compose(pos.set(x, 1.5 * s, z), noRotation, scale).clone();
       const crown = m.compose(pos.set(x, 5.5 * s, z), noRotation, scale).clone();
       listFor(x, z).trees.push([trunk, crown, color.setHSL(0.27 + this.rand() * 0.08, 0.45, 0.18 + this.rand() * 0.12).getHex()]);
       const hk = key(Math.floor(x / OBSTACLE_CELL), Math.floor(z / OBSTACLE_CELL)), t = [x, z, 0.4 * s];
+      this.treeGrid.has(hk) ? this.treeGrid.get(hk).push(t) : this.treeGrid.set(hk, [t]);
+    }
+    for (const t of this.stations.circles) {   // totens dos postos
+      const hk = key(Math.floor(t[0] / OBSTACLE_CELL), Math.floor(t[1] / OBSTACLE_CELL));
       this.treeGrid.has(hk) ? this.treeGrid.get(hk).push(t) : this.treeGrid.set(hk, [t]);
     }
 
@@ -277,13 +292,14 @@ export class CityMap {
     const p = this.network.nearest(state.x, state.z), edge = p ? p[0] - p[2][4] : Infinity;
     out.onRoad = edge < 0.4;                      // mesmo critério de RoadNetwork.isOnRoad
     out.height = groundHeight(edge, this.sidewalkWidth);
+    if (!out.onRoad && this.stations.lotAt(state.x, state.z)) out.onRoad = true, out.height = Math.max(out.height, LOT_Y);   // piso do posto
     return out;
   }
 
   /** Altura do piso em (x, z): asfalto e calçada são desenhados um pouco acima do gramado. */
   surfaceHeight(x, z) {
-    const p = this.network.nearest(x, z);
-    return groundHeight(p ? p[0] - p[2][4] : Infinity, this.sidewalkWidth);
+    const p = this.network.nearest(x, z), h = groundHeight(p ? p[0] - p[2][4] : Infinity, this.sidewalkWidth);
+    return h < LOT_Y && this.stations.lotAt(x, z) ? LOT_Y : h;
   }
 
   /** Árvores nas 9 células em volta do ponto (sem criar arrays a cada chamada). */
@@ -377,6 +393,7 @@ export class CityMap {
     mp.x = focus.x, mp.z = focus.z, mp.s = s;
     mp.fn ||= (x, z) => (mp.out[0] = (x - mp.x) * mp.s, mp.out[1] = (z - mp.z) * mp.s, mp.out);
     this.gps.drawOn(g, mp.fn, 4);
+    this.stations.drawIcons(g, mp.fn, 11);
     const dest = this.gps.destination;
     if (dest) {     // destino preso na borda quando está longe
       let dx = (dest.x - focus.x) * s, dz = (dest.z - focus.z) * s;
@@ -407,6 +424,7 @@ export class CityMap {
       g.stroke();
     }
     this.gps.drawOn(g, P, Math.max(4, 3 * scale));
+    this.stations.drawIcons(g, P, 16);
     const dest = this.gps.destination;
     if (dest) {
       const [x, y] = P(dest.x, dest.z);
@@ -424,6 +442,7 @@ export class CityMap {
 
   setNight(night) {
     this.windowUniform.value = night ? 1 : 0;
+    this.stations.setNight(night);
   }
 
   dispose() {

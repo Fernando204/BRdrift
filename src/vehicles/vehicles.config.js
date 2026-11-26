@@ -84,6 +84,13 @@ export const VEHICLES = {
 
     /** Rebaixamento máximo (m): a lataria do para-lama traseiro encosta no ombro do pneu com ~9,9 cm. */
     suspension: { maxDrop: 0.09 },
+
+    /**
+     * Combustível (gasolina), como o carro real: tanque de 58 L e 10,4 km/l na cidade / 13,7 km/l na
+     * estrada (ficha técnica do Chevette SL 1.6); idleLph: consumo típico em marcha lenta (L/h).
+     * O consumo do jogo é calibrado para chegar perto desses números (ver FuelModel.js).
+     */
+    fuel: { tankLiters: 58, cityKmL: 10.4, highwayKmL: 13.7, idleLph: 1.0 },
   },
 
   saveiro: {
@@ -159,6 +166,9 @@ export const VEHICLES = {
 
     /** Rebaixamento máximo (m): limitado pelas caixas de roda da caçamba (folga de ~19 cm). */
     suspension: { maxDrop: 0.17 },
+
+    /** Combustível (gasolina): tanque de 55 L; 10,9 km/l na cidade e 12,1 km/l na estrada (Inmetro, Saveiro Robust 1.6). */
+    fuel: { tankLiters: 55, cityKmL: 10.9, highwayKmL: 12.1, idleLph: 0.8 },
   },
 
   mustang: {
@@ -229,5 +239,8 @@ export const VEHICLES = {
 
     /** Rebaixamento máximo (m): baixo como o carro real, sobra só ~3 cm entre o pneu e a borda do para-lama. */
     suspension: { maxDrop: 0.028 },
+
+    /** Combustível (gasolina): tanque de 16 galões (61 L); V8 289 faz ~12 mpg (5,1 km/l) na cidade e ~17 mpg (7,2 km/l) na estrada. */
+    fuel: { tankLiters: 61, cityKmL: 5.1, highwayKmL: 7.2, idleLph: 2.0 },
   },
 };

@@ -40,6 +40,10 @@ game:
     max-route-meters: 6000
     max-average-speed: 45      # m/s (162 km/h): mais rápido que isso a corrida é recusada
     max-minutes: 30
+  fuel:
+    price-per-liter: 6         # moedas por litro
+    start-fraction: 0.5        # carro novo na garagem vem com meio tanque
+    courtesy-liters: 5         # pane seca sem moedas: o frentista dá 5 L
   rooms:
     global-map: salto
     global-max-players: 32

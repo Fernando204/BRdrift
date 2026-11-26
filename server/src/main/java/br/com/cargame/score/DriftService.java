@@ -3,6 +3,7 @@ package br.com.cargame.score;
 import br.com.cargame.auth.UserAccount;
 import br.com.cargame.auth.UserAccountRepository;
 import br.com.cargame.common.ApiException;
+import br.com.cargame.common.Retry;
 import br.com.cargame.config.GameProperties;
 import java.time.Duration;
 import java.time.Instant;
@@ -31,6 +32,10 @@ public class DriftService {
             throw ApiException.badRequest("invalid_drift", "Duração de drift inválida.");
         if (points <= 0 || points > durationMs / 1000.0 * economy.maxDriftPointsPerSecond())
             throw ApiException.badRequest("invalid_drift", "Pontuação de drift inválida.");
+        return Retry.onConflict(() -> bankOnce(userId, points, durationMs));
+    }
+
+    private DriftResult bankOnce(String userId, long points, long durationMs) {
         UserAccount user = users.findById(userId).orElseThrow(() -> ApiException.unauthorized("Sessão inválida."));
         Instant now = Instant.now();
         // um drift não pode ser registrado antes de ele ter tido tempo de acontecer

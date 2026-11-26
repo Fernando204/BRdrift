@@ -26,6 +26,7 @@ export class HUD {
     this.root.style.display = 'none';
     $('drift').hidden = true;
     $('hud-coins').hidden = true;
+    $('posto').hidden = true;
   }
 
   /** Medidor de drift: pontos, combo e barra até o próximo combo; escreve no DOM só quando muda. */
@@ -153,8 +154,8 @@ export class HUD {
       "<button data-acao='" + id + "'" + (id ? '' : ' disabled') + '>' + text + (key && key !== '—' ? ' <kbd>' + key + '</kbd>' : '') + '</button>').join('');
   }
 
-  draw(ctrl, map, focus, remote) {
-    this.gauges.draw(ctrl);
+  draw(ctrl, map, focus, remote, fuel = null) {
+    this.gauges.draw(ctrl, fuel);
     map.drawMinimap(this.minimapCtx, this.minimap, focus, remote);
   }
 }

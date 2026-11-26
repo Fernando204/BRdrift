@@ -16,11 +16,12 @@ export class ApiClient {
     return location.protocol === 'http:' || location.protocol === 'https:';
   }
 
-  async request(method, path, body) {
+  async request(method, path, body, keepalive = false) {
     let res;
     try {
       res = await fetch('api' + path, {
         method,
+        keepalive,                        // continua mesmo se a página estiver fechando (nível do tanque)
         credentials: 'same-origin',
         headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
@@ -44,6 +45,8 @@ export class ApiClient {
   buyCar(carId) { return this.request('POST', '/shop/buy', { carId }); }
   paint(carId, colors, fullColor) { return this.request('POST', '/garage/paint', { carId, colors, fullColor }); }
   suspension(carId, lowering) { return this.request('POST', '/garage/suspension', { carId, lowering }); }
+  fuelReport(carId, liters, keepalive = false) { return this.request('POST', '/fuel/report', { carId, liters }, keepalive); }
+  fuelRefill(carId, currentLiters, liters) { return this.request('POST', '/fuel/refill', { carId, currentLiters, liters }); }
   taxiRates() { return this.request('GET', '/taxi/rates'); }
   taxiFare(routeMeters, straightMeters, durationMs) { return this.request('POST', '/taxi/fare', { routeMeters, straightMeters, durationMs }); }
   bankDrift(points, durationMs) { return this.request('POST', '/score/drift', { points, durationMs }); }

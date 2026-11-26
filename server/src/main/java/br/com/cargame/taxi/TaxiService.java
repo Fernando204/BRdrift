@@ -3,6 +3,7 @@ package br.com.cargame.taxi;
 import br.com.cargame.auth.UserAccount;
 import br.com.cargame.auth.UserAccountRepository;
 import br.com.cargame.common.ApiException;
+import br.com.cargame.common.Retry;
 import br.com.cargame.config.GameProperties;
 import java.time.Duration;
 import java.time.Instant;
@@ -38,6 +39,10 @@ public class TaxiService {
         // não dá para fazer a rota mais rápido que a velocidade média máxima nem demorar mais que o limite
         if (durationMs < routeMeters / taxi.maxAverageSpeed() * 1000 || durationMs > taxi.maxMinutes() * 60_000L)
             throw ApiException.badRequest("invalid_ride", "Tempo de corrida inválido.");
+        return Retry.onConflict(() -> completeOnce(userId, routeMeters, durationMs));
+    }
+
+    private FareResult completeOnce(String userId, double routeMeters, long durationMs) {
         UserAccount user = users.findById(userId).orElseThrow(() -> ApiException.unauthorized("Sessão inválida."));
         Instant now = Instant.now();
         // uma corrida por vez: a anterior precisa ter terminado antes desta começar
