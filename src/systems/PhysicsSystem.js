@@ -9,7 +9,7 @@ import { CollisionSystem } from './CollisionSystem.js';
  * Os números foram calibrados no jogo; mude com cuidado e teste nos dois modos.
  */
 const tireDrift = (load, shape, slip) => -load * Math.sin(shape * Math.atan(11 * slip));
-const surface = { onRoad: true, distance: 0 };   // reaproveitado a cada passo (sem alocação)
+const surface = { onRoad: true, distance: 0, height: 0 };   // reaproveitado a cada passo (sem alocação)
 
 export class PhysicsSystem {
   /**
@@ -32,7 +32,10 @@ export class PhysicsSystem {
     const sinH = Math.sin(K.h), cosH = Math.cos(K.h);
     let vLong = K.vx * sinH + K.vz * cosH, vLat = K.vx * cosH - K.vz * sinH, yaw = K.r;
     const speed = Math.hypot(vLong, vLat);
+    surface.height = 0;
     map.surfaceUnder(K, surface);
+    // altura do piso sob o carro (o asfalto é desenhado um pouco acima do chão): sem isso os pneus afundam
+    K.groundY = K.groundY === undefined ? surface.height : K.groundY + (surface.height - K.groundY) * Math.min(1, dt * 15);
     const grip = surface.onRoad ? 1.15 : 0.7;
     const dir = vLong >= 0 ? 1 : -1, absLong = Math.abs(vLong);
     const latFade = Math.min(1, speed / 1.5), longFade = Math.min(1, absLong / 0.5);

@@ -113,6 +113,8 @@ export class RemotePlayers {
       s.pitch = A[6] + (B[6] - A[6]) * k;
       s.roll = A[7] + (B[7] - A[7]) * k;
       s.vf = A[8] + (B[8] - A[8]) * k;
+      const gy = this.groundAt ? this.groundAt(s.x, s.z) : 0;
+      s.groundY = s.groundY === undefined ? gy : s.groundY + (gy - s.groundY) * Math.min(1, dt * 15);
       const f = b.f;
       s.brake = !!(f & STATE_FLAGS.BRAKE);
       s.reverse = !!(f & STATE_FLAGS.REVERSE);

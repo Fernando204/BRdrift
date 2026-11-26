@@ -40,6 +40,7 @@ export class CityMap {
     this.groundScale = 4.2;
     this.bodyClass = 'cidade';
     this.half = D.meia;
+    this.sidewalkWidth = D.calcada;
     this.names = D.nomes;
     this.start = D.inicio;
     this.group = new Group();
@@ -75,8 +76,8 @@ export class CityMap {
     for (const r of roads) {
       const hw = D.larguras[r.c];
       if (r.c === 7) { ribbon(buf('dirt'), r.P, hw, 0.035); continue; }
-      ribbon(buf('sidewalk'), r.P, hw + D.calcada, 0.018);
-      ribbon(buf('asphalt'), r.P, hw, 0.04);
+      ribbon(buf('sidewalk'), r.P, hw + D.calcada, SIDEWALK_Y);
+      ribbon(buf('asphalt'), r.P, hw, ROAD_SURFACE_Y);
       if (r.c <= 2) centerLine(lines, r.P);
     }
     for (const t of D.pracas) {
@@ -102,8 +103,12 @@ export class CityMap {
     for (let t = 0; t < I.length; t += 3) {
       const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
       const chunk = this.chunks.at((P[a] + P[b] + P[c]) / 3, (P[a + 2] + P[b + 2] + P[c + 2]) / 3);
+      // face da frente sempre para cima: com a face "de costas", o material dupla-face inverte a normal
+      // (aponta para baixo) e as luzes diretas (sol e faróis) não iluminam o asfalto
+      const up = (P[b + 2] - P[a + 2]) * (P[c] - P[a]) - (P[b] - P[a]) * (P[c + 2] - P[a + 2]) > 0;
+      const tri = up ? [I[t], I[t + 1], I[t + 2]] : [I[t], I[t + 2], I[t + 1]];
       const list = byChunk.get(chunk);
-      list ? list.push(I[t], I[t + 1], I[t + 2]) : byChunk.set(chunk, [I[t], I[t + 1], I[t + 2]]);
+      list ? list.push(...tri) : byChunk.set(chunk, tri);
     }
     const remap = new Int32Array(n), stamp = new Int32Array(n).fill(-1);
     let pass = 0;
@@ -269,8 +274,16 @@ export class CityMap {
 
   surfaceUnder(state, out) {
     out.distance = 0;
-    out.onRoad = this.network.isOnRoad(state.x, state.z);
+    const p = this.network.nearest(state.x, state.z), edge = p ? p[0] - p[2][4] : Infinity;
+    out.onRoad = edge < 0.4;                      // mesmo critério de RoadNetwork.isOnRoad
+    out.height = groundHeight(edge, this.sidewalkWidth);
     return out;
+  }
+
+  /** Altura do piso em (x, z): asfalto e calçada são desenhados um pouco acima do gramado. */
+  surfaceHeight(x, z) {
+    const p = this.network.nearest(x, z);
+    return groundHeight(p ? p[0] - p[2][4] : Infinity, this.sidewalkWidth);
   }
 
   /** Árvores nas 9 células em volta do ponto (sem criar arrays a cada chamada). */
@@ -423,6 +436,14 @@ export class CityMap {
 
 // ---------------------------------------------------------------------- geometria das vias
 /** Faixa ao longo da polilinha, com junções em "miter" e discos nas pontas e curvas. */
+/** Alturas das fitas de asfalto e calçada (acima do gramado para não piscar). */
+const ROAD_SURFACE_Y = 0.04, SIDEWALK_Y = 0.018;
+
+/** Altura do piso pela distância até a borda da rua (negativa = sobre o asfalto). */
+function groundHeight(edge, sidewalk) {
+  return edge < 0.4 ? ROAD_SURFACE_Y : edge < sidewalk ? SIDEWALK_Y : 0;
+}
+
 function ribbon(B, P, hw, y) {
   const n = P.length / 2;
   let prev = -1;

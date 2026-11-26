@@ -14,6 +14,8 @@ const CONTROL_POINTS = [
 ];
 const SAMPLES = 700;          // pontos ao longo da pista
 const ROAD_HALF_WIDTH = 8.2;  // até onde conta como asfalto (inclui a zebra)
+/** Altura do piso pela distância ao eixo: asfalto (fita a 2 cm), zebra (3 cm) e gramado (0). */
+const trackHeight = d => (d < 7 ? 0.02 : d < 8.3 ? 0.03 : 0);
 const TREE_COUNT = 420;
 
 /** Circuito fechado com zebras, pórtico de largada, árvores e contagem de voltas. */
@@ -169,7 +171,13 @@ export class TrackMap {
   surfaceUnder(state, out) {
     out.distance = this.distanceToTrack(state.x, state.z);
     out.onRoad = out.distance < ROAD_HALF_WIDTH;
+    out.height = trackHeight(out.distance);
     return out;
+  }
+
+  /** Altura do piso em (x, z) (carros remotos). */
+  surfaceHeight(x, z) {
+    return trackHeight(this.distanceToTrack(x, z));
   }
 
   forEachObstacleNear(x, z, fn) {

@@ -87,6 +87,7 @@ export class Game {
     this.showroom = new Showroom(this.scene.environment);
     this.showroom.setAspect(innerWidth, innerHeight);
     this.remote = new RemotePlayers(this.scene, this.vehicles, this.cameraController.camera, $('tags'));
+    this.remote.groundAt = (x, z) => this.world.map?.surfaceHeight?.(x, z) ?? 0;   // altura do piso (asfalto acima do chão)
     this.matchRoom = null;
     this.drift.onBank = (points, duration) => this.#bankDrift(points, duration);
     this.drift.onFail = () => this.hud.driftFail();

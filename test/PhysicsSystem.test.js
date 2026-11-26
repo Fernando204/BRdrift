@@ -89,3 +89,10 @@ test('no modo drift, com a traseira escorregando, as rodas seguem o volante do j
     }
   }
 });
+
+test('o carro fica apoiado na altura do piso informada pelo mapa (asfalto acima do gramado)', () => {
+  const raised = { ...map, surfaceUnder(_s, out) { out.onRoad = true; out.distance = 0; out.height = 0.04; } };
+  const c = createController();
+  for (let i = 0; i < 60; i++) PhysicsSystem.step(c, input(0), raised, 1 / 120);
+  assert.ok(Math.abs(c.state.groundY - 0.04) < 1e-3, `altura ${c.state.groundY}`);
+});

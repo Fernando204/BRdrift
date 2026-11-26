@@ -53,9 +53,11 @@ export class Vehicle {
     for (const [slot, name] of Object.entries(cfg.wheels)) {
       const wheel = scene.getObjectByName(name), pivot = new Group();
       pivot.position.copy(wheel.position);
-      pivot.userData.baseY = wheel.position.y;     // altura original do eixo (para o rebaixamento)
+      pivot.userData.baseY = wheel.position.y;     // altura do eixo (fica fixa: a roda não sobe nem desce)
       wheel.position.set(0, 0, 0);
-      scene.add(pivot);
+      // as rodas ficam na raiz do carro, fora da carroceria: a carroceria inclina (rolagem nas curvas,
+      // arfagem ao frear/acelerar) e as rodas continuam apoiadas no chão, sem afundar no asfalto
+      this.root.add(pivot);
       pivot.add(wheel);
       this.wheels[slot] = { pivot, wheel, front: slot[0] === 'f' };
     }
@@ -186,15 +188,15 @@ export class Vehicle {
   }
 
   /**
-   * Rebaixamento: desce o modelo inteiro (carroceria, interior, faróis, motorista, câmera de cockpit)
-   * e sobe os eixos na mesma medida, para as rodas continuarem apoiadas no chão.
+   * Rebaixamento: desce a carroceria inteira (interior, faróis, motorista, câmera de cockpit); as rodas,
+   * que ficam fora da carroceria, continuam apoiadas no chão.
    * @param drop metros, limitado a config.suspension.maxDrop
    */
   setRideHeight(drop) {
     const max = this.config.suspension?.maxDrop ?? 0;
     this.rideDrop = Math.min(Math.max(drop, 0), max);
-    this.model.position.y = -this.rideDrop;
-    for (const w of Object.values(this.wheels)) w.pivot.position.y = w.pivot.userData.baseY + this.rideDrop;
+    this.model.position.y = -this.rideDrop;      // só a carroceria desce; as rodas (na raiz) ficam no chão
+    for (const w of Object.values(this.wheels)) w.pivot.position.y = w.pivot.userData.baseY;
     this.root.updateMatrixWorld(true);
   }
 
@@ -227,7 +229,7 @@ export class Vehicle {
     this.doorAngle += (this.doorTarget - this.doorAngle) * Math.min(1, dt * 5);
     this.door.rotation.y = this.config.door.openAngle * this.doorAngle;
 
-    this.root.position.set(s.x, 0, s.z);
+    this.root.position.set(s.x, s.groundY || 0, s.z);    // altura do piso (asfalto acima do gramado)
     this.root.rotation.y = s.h;
     this.model.rotation.set(s.pitch, 0, s.roll);
     this.wheelSpin += s.vf * dt / this.config.physics.wheelRadius;
@@ -250,13 +252,15 @@ export class Vehicle {
     for (const light of this.headlights) {
       if (this.remote) { light.visible = false; continue; }   // carros remotos: só a lente acesa
       const side = light.userData.side;
-      light.intensity += ([0, 3e3, 7e3][mode] - light.intensity) * Math.min(1, dt * 12);
+      light.intensity += ([0, 3e3, 1.4e4][mode] - light.intensity) * Math.min(1, dt * 12);
       // apagado de fato: o Three.js deixa de calcular os 2 holofotes em todos os pixels da cena
       // (as duas variantes dos shaders são pré-compiladas em Game.prewarmShaders, sem travadas)
       light.visible = mode > 0 || light.intensity > 1;
-      light.angle = high ? 0.33 : 0.5;
+      // baixo: poça de luz larga a ~14 m; alto: mais forte e mirado no asfalto a ~30 m (ilumina a rua
+      // mais longe; mirado quase na horizontal, como antes, só pegava paredes e deixava o chão escuro)
+      light.angle = high ? 0.42 : 0.5;
       light.distance = high ? 140 : 70;
-      light.target.position.set(side * (high ? 0.35 : 0.5), high ? 0.5 : 0, high ? 45 : 14);
+      light.target.position.set(side * (high ? 0.4 : 0.5), 0, high ? 30 : 14);
     }
     m.reverse.emissiveIntensity = s.reverse ? 2 : 0;
     if (m.indicators.L) m.indicators.L.emissiveIntensity = ctrl.indicatorLeftOn ? 4 : 0;
