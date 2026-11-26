@@ -44,6 +44,8 @@ export class ApiClient {
   buyCar(carId) { return this.request('POST', '/shop/buy', { carId }); }
   paint(carId, colors, fullColor) { return this.request('POST', '/garage/paint', { carId, colors, fullColor }); }
   suspension(carId, lowering) { return this.request('POST', '/garage/suspension', { carId, lowering }); }
+  taxiRates() { return this.request('GET', '/taxi/rates'); }
+  taxiFare(routeMeters, straightMeters, durationMs) { return this.request('POST', '/taxi/fare', { routeMeters, straightMeters, durationMs }); }
   bankDrift(points, durationMs) { return this.request('POST', '/score/drift', { points, durationMs }); }
   leaderboard() { return this.request('GET', '/leaderboard'); }
   rooms() { return this.request('GET', '/rooms'); }

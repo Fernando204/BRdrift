@@ -85,6 +85,11 @@
         </div>
         <button class="btn" id="play-solo">Treinar</button>
       </div>
+      <div class="mode-card">
+        <div class="mode-icon taxi" aria-hidden="true"></div>
+        <div class="mode-text"><h3>Táxi</h3><p class="muted">Pegue passageiros pela cidade e leve ao destino: quanto mais longe, mais moedas. <span class="offline-only">Modo offline: nada é salvo.</span></p></div>
+        <button class="btn" id="play-taxi">Dirigir</button>
+      </div>
       <div class="offline-only">
         <div class="section-title">Carro</div>
         <div class="chips" id="offline-cars"></div>
@@ -194,6 +199,7 @@
   <div id="aim" hidden aria-hidden="true"></div>
   <div id="drift" class="drift" hidden><div class="drift-points" id="drift-points">0</div><div class="drift-combo"><span id="drift-combo">x1</span><i><b id="drift-bar"></b></i></div><div class="drift-label">DRIFT</div></div>
   <div id="hud-coins" class="hud-coins coins" hidden>0</div>
+  <div id="taxi" class="p" hidden><div class="taxi-tag">TÁXI</div><div id="taxi-title"></div><div id="taxi-sub"></div></div>
   <div id="msg"></div>
   <div id="acao"></div>
   <button id="pbtn" class="p">☰ Menu</button>

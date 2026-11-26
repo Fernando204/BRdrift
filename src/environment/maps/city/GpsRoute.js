@@ -19,6 +19,7 @@ export class GpsRoute {
     this.timer = 0;
     this.label = '';             // texto para o HUD ("Rua X · 1,2 km")
     this.onArrive = null;
+    this.autoClear = true;       // falso no modo táxi: o destino só sai quando o carro para
 
     this.arrowTexture = createCanvasTexture(64, 64, (g, w, h) => {
       g.clearRect(0, 0, w, h), g.fillStyle = 'rgba(190,80,255,.55)', g.fillRect(0, 0, w, h);
@@ -93,7 +94,7 @@ export class GpsRoute {
     this.#buildLine(r.pts);
     const name = this.names[this.network.edges[this.destination.e].n] || 'Destino';
     this.label = name + ' \xB7 ' + formatDistance(r.L + origin.d);
-    if (r.L < 14 && origin.d < 12) {
+    if (this.autoClear && r.L < 14 && origin.d < 12) {
       this.clear();
       this.onArrive?.();
     }

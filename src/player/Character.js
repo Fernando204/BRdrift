@@ -2,11 +2,12 @@ import { Group, Mesh, BoxGeometry, SphereGeometry, MeshStandardMaterial } from '
 
 /** Personagem simples (blocos) com pose sentada e animação de caminhada. */
 export class Character {
-  constructor() {
-    const skin = new MeshStandardMaterial({ color: 0xd8a07a, roughness: 0.7 });
-    const shirt = new MeshStandardMaterial({ color: 0x2f6fb5, roughness: 0.85 });
-    const pants = new MeshStandardMaterial({ color: 0x2a2f3b, roughness: 0.9 });
-    const hair = new MeshStandardMaterial({ color: 0x2a1c12, roughness: 0.9 });
+  /** @param colors cores opcionais { skin, shirt, pants, hair } (passageiros do táxi variam) */
+  constructor(colors = {}) {
+    const skin = new MeshStandardMaterial({ color: colors.skin ?? 0xd8a07a, roughness: 0.7 });
+    const shirt = new MeshStandardMaterial({ color: colors.shirt ?? 0x2f6fb5, roughness: 0.85 });
+    const pants = new MeshStandardMaterial({ color: colors.pants ?? 0x2a2f3b, roughness: 0.9 });
+    const hair = new MeshStandardMaterial({ color: colors.hair ?? 0x2a1c12, roughness: 0.9 });
     const shoes = new MeshStandardMaterial({ color: 0x151515, roughness: 0.6 });
     const box = (w, h, d, m, x, y, z) => {
       const o = new Mesh(new BoxGeometry(w, h, d), m);
@@ -63,6 +64,17 @@ export class Character {
     this.root.scale.setScalar(1);
     this.root.position.set(x, 0, z);
     this.armL.rotation.z = this.armR.rotation.z = 0;
+  }
+
+  /** Libera geometrias e materiais (passageiros que vão embora). */
+  dispose() {
+    this.root.removeFromParent();
+    const seen = new Set();
+    this.root.traverse(o => {
+      if (!o.isMesh) return;
+      o.geometry.dispose();
+      if (!seen.has(o.material)) seen.add(o.material), o.material.dispose();
+    });
   }
 
   /** Balanço de braços/pernas proporcional à velocidade. */

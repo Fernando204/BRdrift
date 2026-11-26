@@ -14,6 +14,7 @@ Com o servidor (pasta `server/`, Java + Spring Boot) o jogo tem conta, moedas, l
 - **Conta:** só nome de usuário (único, 3 a 20 caracteres) e senha (6 ou mais). O login fica num cookie de sessão por 30 dias.
 - **Primeiro carro:** no primeiro acesso você escolhe o Chevette ou a Saveiro de graça. O outro custa **1000 moedas** na Loja.
 - **Moedas:** vêm do drift. Os pontos sobem com velocidade × ângulo, e o combo (até ×4) cresce a cada 2 s de drift sem parar. Bater zera o drift. Ao terminar, cada ponto vale 0,02 moeda (5000 pts = 100 moedas). O servidor confere se a pontuação é possível antes de pagar.
+- **Táxi:** no modo táxi (Salto de Pirapora) um passageiro aparece numa calçada qualquer da cidade, marcado por um feixe amarelo e pelo GPS. Pare ao lado dele, espere ele entrar e siga o GPS até o destino (de 350 m a 2,2 km). Parando lá, ele desce e paga **10 moedas + 60 por km** da rota pelas ruas (1 km = 70, 3 km = 190). Sair do carro no meio do caminho cancela a corrida. O servidor recusa corridas impossíveis (rápidas demais ou sobrepostas).
 - **Oficina:** escolha a cor e clique nas peças (150 moedas cada); pintar o carro inteiro custa a soma das peças com 10% de desconto. Baixar ou erguer a suspensão custa 30 moedas por centímetro alterado. A prévia aparece no carro antes de pagar.
 - **Salas:** a sala global (Salto de Pirapora, até 32 jogadores) é só entrar. Salas privadas têm nome, senha e mapa; cada jogador pode ter uma aberta, com até 8 pessoas, e ela fecha quando fica vazia.
 - **Ranking:** os 20 melhores drifts.
@@ -128,6 +129,8 @@ Preços e limites ficam em `server/src/main/resources/application.yml` (`game.ec
 | `POST /api/garage/paint` | pinta peças (`{carId, colors: {peça: "#rrggbb"}}`) ou o carro inteiro (`{carId, fullColor}`) |
 | `POST /api/garage/suspension` | altura (`{carId, lowering: 0..1}`) |
 | `POST /api/score/drift` | registra um drift (`{points, durationMs}`) e paga as moedas |
+| `GET /api/taxi/rates` | tabela do táxi (bandeirada, preço por km, limites da rota) |
+| `POST /api/taxi/fare` | registra uma corrida (`{routeMeters, straightMeters, durationMs}`) e paga as moedas |
 | `GET /api/leaderboard` | ranking |
 | `GET/POST /api/rooms` | lista salas / cria sala privada (`{name, password, map}`) |
 | `WS /ws` | multiplayer (mensagens JSON com campo `t`: `join`, `s` estado do carro a 12 Hz, `look`, `leave`) |

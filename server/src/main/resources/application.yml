@@ -33,6 +33,13 @@ game:
     coins-per-point: 0.02      # 1 moeda a cada 50 pontos de drift
     max-drift-points-per-second: 3500
     max-drift-seconds: 120
+  taxi:
+    base-fare: 10              # bandeirada
+    per-km: 60                 # moedas por km da rota (1 km = 70, 3 km = 190)
+    min-route-meters: 150
+    max-route-meters: 6000
+    max-average-speed: 45      # m/s (162 km/h): mais rápido que isso a corrida é recusada
+    max-minutes: 30
   rooms:
     global-map: salto
     global-max-players: 32

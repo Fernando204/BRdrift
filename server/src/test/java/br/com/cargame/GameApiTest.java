@@ -155,6 +155,36 @@ class GameApiTest {
     }
 
     @Test
+    void corridaDeTaxiPagaPelaDistanciaDaRotaERecusaCorridasImpossiveis() throws Exception {
+        Cookie c = register("Taxista1");
+        // 2 km de rota em 3 minutos: 10 + 60 * 2 = 130 moedas
+        mvc.perform(post("/api/taxi/fare").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"routeMeters\":2000,\"straightMeters\":1500,\"durationMs\":180000}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.coinsEarned").value(130))
+                .andExpect(jsonPath("$.coins").value(130))
+                .andExpect(jsonPath("$.rides").value(1));
+        // outra corrida logo em seguida, que levaria 3 minutos: sobrepõe a anterior
+        mvc.perform(post("/api/taxi/fare").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"routeMeters\":2000,\"straightMeters\":1500,\"durationMs\":180000}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("ride_too_fast"));
+        Cookie d = register("Taxista2");
+        // 3 km em 20 s (150 m/s): impossível
+        mvc.perform(post("/api/taxi/fare").cookie(d).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"routeMeters\":3000,\"straightMeters\":2000,\"durationMs\":20000}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("invalid_ride"));
+        // linha reta maior que a rota: impossível
+        mvc.perform(post("/api/taxi/fare").cookie(d).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"routeMeters\":1000,\"straightMeters\":1500,\"durationMs\":100000}"))
+                .andExpect(status().isBadRequest());
+        // além do limite de distância
+        mvc.perform(post("/api/taxi/fare").cookie(d).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"routeMeters\":9000,\"straightMeters\":5000,\"durationMs\":900000}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/taxi/rates")).andExpect(status().isOk()).andExpect(jsonPath("$.perKm").value(60));
+    }
+
+    @Test
     void indiceUnicoBarraNomeRepetidoMesmoSemPassarPelaApi() {
         users.save(new UserAccount("Duplo", "x"));
         assertThrows(DuplicateKeyException.class, () -> users.save(new UserAccount("duplo", "y")));

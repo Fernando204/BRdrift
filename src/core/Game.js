@@ -28,6 +28,7 @@ import { ApiClient } from '../net/ApiClient.js';
 import { Session } from '../net/Session.js';
 import { MultiplayerClient } from '../net/MultiplayerClient.js';
 import { RemotePlayers, STATE_FLAGS } from '../multiplayer/RemotePlayers.js';
+import { TaxiMode } from '../systems/TaxiMode.js';
 import { DriftScoring } from '../systems/DriftScoring.js';
 import { Showroom } from '../environment/Showroom.js';
 import { Interface } from '../ui/Interface.js';
@@ -89,6 +90,7 @@ export class Game {
     this.remote = new RemotePlayers(this.scene, this.vehicles, this.cameraController.camera, $('tags'));
     this.remote.groundAt = (x, z) => this.world.map?.surfaceHeight?.(x, z) ?? 0;   // altura do piso (asfalto acima do chão)
     this.matchRoom = null;
+    this.taxi = new TaxiMode(this);
     this.drift.onBank = (points, duration) => this.#bankDrift(points, duration);
     this.drift.onFail = () => this.hud.driftFail();
     this.mp.onPlayerJoin = p => { this.remote.add(p); this.iface.toast(`${p.name} entrou na sala`); };
@@ -283,6 +285,13 @@ export class Game {
     await this.#startMatch(mapId, null);
   }
 
+  /** Modo táxi (só na cidade): já começa dentro do carro, com o primeiro passageiro a caminho. */
+  async playTaxi() {
+    await this.#startMatch('salto', null);
+    this.enterVehicle();
+    this.taxi.start();
+  }
+
   /** Sala global ou privada: conecta, entra e monta o mapa da sala. */
   async playRoom(roomId, password) {
     if (!this.session.loggedIn) throw new Error('Entre na sua conta para jogar online.');
@@ -321,6 +330,7 @@ export class Game {
   /** Texto da partida atual (pausa e menu). */
   matchDescription() {
     const map = MAP_NAMES[this.world.mapId] || '';
+    if (this.taxi.active) return `Modo táxi · ${map}`;
     if (!this.matchRoom) return `Treino solo · ${map}`;
     const room = this.matchRoom.isPrivate ? `Sala "${this.matchRoom.name}"` : 'Sala global';
     return `${room} · ${map} · ${this.remote.count + 1} jogador(es)`;
@@ -330,6 +340,7 @@ export class Game {
     this.mp.leave();
     this.remote.clear();
     this.matchRoom = null;
+    if (this.taxi.active) this.taxi.stop();
     this.started = false;
     this.paused = false;
     this.drift.reset();
@@ -411,6 +422,7 @@ export class Game {
     this.iface.loading('Carregando ' + VEHICLES[id].name + '\u2026');
     try {
       this.player.character.root.removeFromParent();   // o personagem não pode ser descartado junto com o carro antigo
+      this.taxi.detachPassenger();
       await this.vehicles.spawn(id);
       this.vehicleId = id;
       this.settings.vehicleId = id;
@@ -516,6 +528,7 @@ export class Game {
   resume() {
     this.paused = false;
     this.world.map.shiftTimers(performance.now() - this.pausedAt);
+    this.taxi.shiftTimers(performance.now() - this.pausedAt);
     this.iface.hide();
     this.audio.resume();
     this.loop.resetClock();
@@ -803,6 +816,7 @@ export class Game {
       this.hud.updateActions(this.player.actionsKey(vehicle, ctrl) | (this.keyLabelsVersion << 8), this.availableActionsBuilder);
       const focus = this.focus;
       if (map.gps) map.gps.update(focus, dt), this.hud.setDestination(map.gps);
+      this.taxi.update(dt);
       this.skidMarks.update(ctrl.state, map);
       this.hud.setTimerText(map.timerText(now, focus));
       if (map.currentLap !== undefined && map.currentLap !== this.shownLap) this.shownLap = map.currentLap, this.hud.setLap(this.shownLap);

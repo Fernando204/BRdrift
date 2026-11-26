@@ -139,6 +139,7 @@ export class Interface {
     $('logout').addEventListener('click', () => this.game.logout());
     $('play-global').addEventListener('click', () => this.#play(() => this.game.playRoom('global')));
     $('play-solo').addEventListener('click', () => this.#play(() => this.game.playSolo(this.soloMap)));
+    $('play-taxi').addEventListener('click', () => this.#play(() => this.game.playTaxi()));
     $('solo-map').addEventListener('click', e => {
       const b = e.target.closest('button[data-map]');
       if (!b) return;

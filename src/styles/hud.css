@@ -19,6 +19,11 @@
 #editMode{position:fixed;left:225px;top:calc(116px + env(safe-area-inset-top,0px));border:1px solid rgba(255,255,255,.2);color:#fff;font-size:13px;cursor:pointer;padding:6px 12px;font-family:inherit}
 #editMode[aria-pressed="true"]{border-color:rgba(255,255,255,.6);background:rgba(12,16,24,.82)}
 #diag{position:fixed;z-index:50;left:12px;top:calc(160px + env(safe-area-inset-top,0px));margin:0;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.62);color:#d8ffd8;font:11px/1.45 ui-monospace,Consolas,monospace;white-space:pre;pointer-events:none}
+#taxi{position:fixed;right:12px;top:calc(166px + env(safe-area-inset-top,0px));width:230px;box-sizing:border-box;padding:10px 14px;border-left:4px solid #ffc928}
+#taxi[hidden]{display:none}
+#taxi .taxi-tag{font-size:10px;font-weight:800;letter-spacing:.3em;color:#ffc928}
+#taxi-title{font-size:16px;font-weight:700;margin-top:2px}
+#taxi-sub{font-size:13px;opacity:.8;margin-top:2px}
 #dest{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));font-size:15px;font-weight:600;white-space:nowrap;max-width:60vw;overflow:hidden;text-overflow:ellipsis}
 #aim{position:fixed;z-index:10;left:50%;top:50%;width:14px;height:14px;transform:translate(-50%,-50%);pointer-events:none}
 #aim:before,#aim:after{content:"";position:absolute;background:rgba(255,255,255,.92);border-radius:2px;box-shadow:0 1px 3px #000}

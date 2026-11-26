@@ -35,6 +35,9 @@ public class UserAccount {
     private long bestDrift;
     private long totalDriftPoints;
     private Instant lastDriftBankAt;
+    private long taxiRides;
+    private long taxiCoins;
+    private Instant lastTaxiAt;
     private Instant createdAt = Instant.now();
 
     /** Carros da garagem, na ordem em que foram conseguidos. */
@@ -65,6 +68,12 @@ public class UserAccount {
     public void setTotalDriftPoints(long totalDriftPoints) { this.totalDriftPoints = totalDriftPoints; }
     public Instant getLastDriftBankAt() { return lastDriftBankAt; }
     public void setLastDriftBankAt(Instant lastDriftBankAt) { this.lastDriftBankAt = lastDriftBankAt; }
+    public long getTaxiRides() { return taxiRides; }
+    public void setTaxiRides(long taxiRides) { this.taxiRides = taxiRides; }
+    public long getTaxiCoins() { return taxiCoins; }
+    public void setTaxiCoins(long taxiCoins) { this.taxiCoins = taxiCoins; }
+    public Instant getLastTaxiAt() { return lastTaxiAt; }
+    public void setLastTaxiAt(Instant lastTaxiAt) { this.lastTaxiAt = lastTaxiAt; }
 
     public List<OwnedCar> getCars() { return cars; }
 
