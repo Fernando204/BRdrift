@@ -165,19 +165,19 @@ export const VEHICLES = {
     name: 'Mustang 1965',
     model: 'assets/models/vehicles/mustang/mustang.glb',
 
-    // pintura: textura de sombreamento em cinza multiplicada pela cor (a cor escolhida mantém reflexos e detalhes)
+    // modelo refeito do zero (carroceria limpa em painéis, cromados, interior); pintura em cor sólida
     paintMaterial: 'Pintura_Mustang',
-    // vermelho, azul, preto, branco, verde, amarelo
-    colors: ['#8a1722', '#1c3f8c', '#121314', '#e6e4dc', '#1f5a3a', '#e0b521'],
+    // vinho (Vintage Burgundy, como na foto), vermelho, azul, preto, branco, verde
+    colors: ['#6e1923', '#a3131d', '#1c3f8c', '#121314', '#e6e4dc', '#1f5a3a'],
     customizableParts: [
-      { objectName: 'Capo', name: 'Capô', materialName: 'Pintura_Mustang', originalColor: '#8a1722', categories: ['paint'] },
-      { objectName: 'Cabine', name: 'Teto e colunas', materialName: 'Pintura_Mustang', originalColor: '#8a1722', categories: ['paint'] },
-      { objectName: 'Carroceria', name: 'Carroceria', materialName: 'Pintura_Mustang', originalColor: '#8a1722', categories: ['paint'] },
-      { objectName: 'Porta_Esquerda', name: 'Porta do motorista', materialName: 'Pintura_Mustang', originalColor: '#8a1722', categories: ['paint'] },
-      { objectName: 'Porta_Direita', name: 'Porta do passageiro', materialName: 'Pintura_Mustang', originalColor: '#8a1722', categories: ['paint'] },
-      { objectName: 'Paralama_Esquerdo', name: 'Para-lama dianteiro esquerdo', materialName: 'Pintura_Mustang', originalColor: '#8a1722', categories: ['paint'] },
-      { objectName: 'Paralama_Direito', name: 'Para-lama dianteiro direito', materialName: 'Pintura_Mustang', originalColor: '#8a1722', categories: ['paint'] },
-      { objectName: 'Tampa_Porta_Malas', name: 'Tampa do porta-malas', materialName: 'Pintura_Mustang', originalColor: '#8a1722', categories: ['paint'] },
+      { objectName: 'Capo', name: 'Capô', materialName: 'Pintura_Mustang', originalColor: '#6e1923', categories: ['paint'] },
+      { objectName: 'Cabine', name: 'Teto e colunas', materialName: 'Pintura_Mustang', originalColor: '#6e1923', categories: ['paint'] },
+      { objectName: 'Carroceria', name: 'Carroceria', materialName: 'Pintura_Mustang', originalColor: '#6e1923', categories: ['paint'] },
+      { objectName: 'Porta_Esquerda', name: 'Porta do motorista', materialName: 'Pintura_Mustang', originalColor: '#6e1923', categories: ['paint'] },
+      { objectName: 'Porta_Direita', name: 'Porta do passageiro', materialName: 'Pintura_Mustang', originalColor: '#6e1923', categories: ['paint'] },
+      { objectName: 'Paralama_Esquerdo', name: 'Para-lama dianteiro esquerdo', materialName: 'Pintura_Mustang', originalColor: '#6e1923', categories: ['paint'] },
+      { objectName: 'Paralama_Direito', name: 'Para-lama dianteiro direito', materialName: 'Pintura_Mustang', originalColor: '#6e1923', categories: ['paint'] },
+      { objectName: 'Tampa_Porta_Malas', name: 'Tampa do porta-malas', materialName: 'Pintura_Mustang', originalColor: '#6e1923', categories: ['paint'] },
     ],
 
     wheels: {
@@ -188,11 +188,12 @@ export const VEHICLES = {
     },
     steeringWheel: 'Volante',
     door: {
-      hinge: [0.84, 0, 0.46],
+      hinge: [0.83, 0, 0.443],
       openAngle: -1.1,
       interactionAction: 'toggleDoor',
       standPoint: [1.35, -0.05],
-      parts: ['Porta_Esquerda'],   // retrovisor e maçaneta já fazem parte da porta
+      // vidro (sem coluna: hardtop), maçaneta, quebra-vento, frisos e retrovisor giram com a porta
+      parts: ['Porta_Esquerda', 'Vidro_Porta_Esquerda', 'Porta_Esquerda_Cromados', 'Porta_Esquerda_Borracha', 'Retrovisor'],
     },
 
     lights: {
@@ -200,12 +201,12 @@ export const VEHICLES = {
       tail: 'Lente_Vermelha',
       reverse: 'Lente_Re_Branca',
       indicator: 'Lente_Ambar',
-      headlightOffset: [0.75, 0.81, 2.2],
+      headlightOffset: [0.715, 0.805, 2.1],
     },
 
-    cockpitCamera: [0.38, 1.13, -0.30],
-    driverSeat: { position: [0.38, -0.37, -0.17], tilt: -0.15, scale: 0.92 },
-    bodyHalfSize: [0.88, 2.3],
+    cockpitCamera: [0.38, 1.12, -0.33],
+    driverSeat: { position: [0.38, -0.39, -0.19], tilt: -0.15, scale: 0.92 },
+    bodyHalfSize: [0.88, 2.31],
     tireContacts: [[0.728, 1.432, 0], [-0.728, 1.432, 0], [0.73, -1.365, 1], [-0.73, -1.365, 1]],
 
     physics: {
@@ -226,7 +227,7 @@ export const VEHICLES = {
 
     sound: { baseFrequency: 28, frequencyRange: 96 },
 
-    /** Rebaixamento máximo (m): pouca folga entre o pneu e a borda da caixa de roda (~6 cm). */
-    suspension: { maxDrop: 0.065 },
+    /** Rebaixamento máximo (m): a caixa de roda (raio 0,395) deixa ~6 cm acima do pneu. */
+    suspension: { maxDrop: 0.055 },
   },
 };

@@ -46,8 +46,8 @@
       "name": "Mustang 1965",
       "price": 1000,
       "starter": false,
-      "defaultColor": "#8a1722",
-      "maxDropCm": 6,
+      "defaultColor": "#6e1923",
+      "maxDropCm": 5,
       "parts": [
         { "id": "Capo", "name": "Capô" },
         { "id": "Cabine", "name": "Teto e colunas" },
