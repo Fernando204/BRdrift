@@ -26,6 +26,11 @@ export class Settings {
     if (saved.fuel && typeof saved.fuel === 'object') {
       for (const [id, v] of Object.entries(saved.fuel)) if (typeof v === 'number' && v >= 0) this.fuel[id] = v;
     }
+    // hodômetro de cada carro (km, jogo offline)
+    this.odometer = {};
+    if (saved.odo && typeof saved.odo === 'object') {
+      for (const [id, v] of Object.entries(saved.odo)) if (typeof v === 'number' && v >= 0) this.odometer[id] = v;
+    }
     this.graphicsQuality = ['low', 'medium', 'high'].includes(saved.gfx) ? saved.gfx : 'medium';
     // sombras: desligadas ou qualidade própria (antes só havia ligado/desligado em "shadow")
     this.shadowQuality = ['off', 'low', 'medium', 'high'].includes(saved.shadowQ)
@@ -53,6 +58,7 @@ export class Settings {
       low: this.lowering,
       drift: this.driftMode ? 1 : 0,
       fuel: this.fuel,
+      odo: this.odometer,
       gfx: this.graphicsQuality,
       shadow: this.shadows,
       shadowQ: this.shadowQuality,

@@ -33,9 +33,22 @@ export class Gauges {
     g.restore();
   }
 
-  /** Marcador de combustível na parte de baixo do velocímetro (E ... F), com luz da reserva. */
+  /** Hodômetro (km do carro) e parcial (km desta partida), embaixo do conta-giros. */
+  #odometer(car) {
+    const g = this.g, odo = Math.floor(car.odometer), trip = Math.floor(car.trip * 10) / 10;
+    if (odo !== this.odoValue) this.odoValue = odo, this.odoText = String(Math.min(odo, 999999)).padStart(6, '0');
+    if (trip !== this.tripValue) this.tripValue = trip, this.tripText = 'parcial ' + trip.toFixed(1).replace('.', ',') + ' km';
+    g.fillStyle = 'rgba(0,0,0,.5)', g.strokeStyle = 'rgba(255,255,255,.28)', g.lineWidth = 1;
+    g.beginPath(), g.roundRect(39.5, 143.5, 66, 15, 3), g.fill(), g.stroke();
+    g.textAlign = 'center', g.textBaseline = 'middle';
+    g.fillStyle = '#fff', g.font = '700 11px ui-monospace,Consolas,monospace', g.fillText(this.odoText, 72.5, 151.5);
+    g.fillStyle = 'rgba(255,255,255,.75)', g.font = '600 9px system-ui,sans-serif', g.fillText('km', 115, 151.5);
+    g.fillText(this.tripText, 80, 165);
+  }
+
+  /** Marcador de combustível embaixo do velocímetro (E ... F), luz da reserva e os litros em números. */
   #fuel(fuel) {
-    const g = this.g, x0 = 228, x1 = 292, y = 156, f = Math.max(0, Math.min(1, fuel.fraction)), low = fuel.inReserve;
+    const g = this.g, x0 = 228, x1 = 292, y = 151, f = Math.max(0, Math.min(1, fuel.fraction)), low = fuel.inReserve;
     const blink = low && Math.floor(performance.now() / 500) % 2 === 0;
     g.fillStyle = 'rgba(255,255,255,.18)', g.fillRect(x0, y - 3, x1 - x0, 6);
     g.fillStyle = low ? '#ff9f1a' : '#fff', g.fillRect(x0, y - 3, (x1 - x0) * f, 6);
@@ -49,9 +62,17 @@ export class Gauges {
     g.fillRect(ix, iy, 7, 12), g.fillStyle = '#0c1018', g.fillRect(ix + 1.5, iy + 2, 4, 3.5);
     g.strokeStyle = g.fillStyle = blink || low ? '#ff9f1a' : 'rgba(255,255,255,.55)', g.lineWidth = 1.2;
     g.beginPath(), g.moveTo(ix + 7, iy + 3), g.lineTo(ix + 10, iy + 5), g.lineTo(ix + 10, iy + 10), g.stroke();
+    const tenth = Math.floor(fuel.liters * 10);
+    if (tenth !== this.litersValue || fuel.tank !== this.tankValue) {
+      this.litersValue = tenth, this.tankValue = fuel.tank;
+      this.litersText = (tenth / 10).toFixed(1).replace('.', ',') + ' de ' + fuel.tank + ' L';
+    }
+    g.textAlign = 'center', g.textBaseline = 'middle', g.font = '700 10px system-ui,sans-serif';
+    g.fillStyle = low ? '#ff9f1a' : '#fff', g.fillText(this.litersText, 260, 165);
   }
 
-  draw(ctrl, fuel = null) {
+  /** car: tanque e hodômetro do carro (FuelSystem), ou null nos menus. */
+  draw(ctrl, car = null) {
     const g = this.g, kmh = ctrl.speedMs * 3.6, rpm = ctrl.rpm, s = ctrl.state;
     g.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
     g.clearRect(0, 0, WIDTH, HEIGHT);
@@ -65,6 +86,7 @@ export class Gauges {
     g.fillStyle = ctrl.driftMode ? '#ff6b4a' : '#8fd3ff', g.font = '600 10px system-ui,sans-serif';
     g.fillText(ctrl.driftMode ? 'DRIFT' : 'NORMAL', 170, 142);
     if (rpm > 6400 && Math.floor(performance.now() / 90) % 2) g.fillStyle = '#ff3b30', g.beginPath(), g.arc(170, 30, 8, 0, 7), g.fill();
-    if (fuel) this.#fuel(fuel);
+    if (car?.carId) this.#odometer(car);
+    if (car?.enabled) this.#fuel(car);
   }
 }

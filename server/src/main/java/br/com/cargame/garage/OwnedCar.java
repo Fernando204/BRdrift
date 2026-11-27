@@ -16,6 +16,9 @@ public class OwnedCar {
     /** Litros no tanque (null: ainda não rodou; começa com parte do tanque). */
     private Double fuel;
 
+    /** Hodômetro: km rodados com este carro (só aumenta). */
+    private double odometer;
+
     protected OwnedCar() {}
 
     public OwnedCar(String carId) {
@@ -28,4 +31,6 @@ public class OwnedCar {
     public void setLowering(double lowering) { this.lowering = lowering; }
     public Double getFuel() { return fuel; }
     public void setFuel(Double fuel) { this.fuel = fuel; }
+    public double getOdometer() { return odometer; }
+    public void setOdometer(double odometer) { this.odometer = odometer; }
 }

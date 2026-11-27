@@ -229,6 +229,28 @@ class GameApiTest {
     }
 
     @Test
+    void hodometroSoSobeEMaximoCemKmPorVez() throws Exception {
+        Cookie c = register("Motorista1");
+        mvc.perform(post("/api/garage/starter").cookie(c).contentType(MediaType.APPLICATION_JSON).content("{\"carId\":\"saveiro\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.odometer.saveiro").value(0.0));
+        mvc.perform(post("/api/fuel/report").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carId\":\"saveiro\",\"odometerKm\":12.5}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.odometer").value(12.5))
+                .andExpect(jsonPath("$.fuel").value(27.5));       // sem litros: o tanque não muda
+        // voltar o hodômetro não vale
+        mvc.perform(post("/api/fuel/report").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carId\":\"saveiro\",\"liters\":20,\"odometerKm\":3}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.odometer").value(12.5)).andExpect(jsonPath("$.fuel").value(20.0));
+        // salto absurdo: sobe no máximo 100 km
+        mvc.perform(post("/api/fuel/report").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carId\":\"saveiro\",\"odometerKm\":99999}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.odometer").value(112.5));
+        mvc.perform(post("/api/fuel/report").cookie(c).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"carId\":\"saveiro\",\"odometerKm\":-1}")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/me").cookie(c)).andExpect(jsonPath("$.odometer.saveiro").value(112.5));
+    }
+
+    @Test
     void indiceUnicoBarraNomeRepetidoMesmoSemPassarPelaApi() {
         users.save(new UserAccount("Duplo", "x"));
         assertThrows(DuplicateKeyException.class, () -> users.save(new UserAccount("duplo", "y")));

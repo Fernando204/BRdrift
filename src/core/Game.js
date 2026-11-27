@@ -855,7 +855,7 @@ export class Game {
       this.skidMarks.update(ctrl.state, map);
       this.hud.setTimerText(map.timerText(now, focus));
       if (map.currentLap !== undefined && map.currentLap !== this.shownLap) this.shownLap = map.currentLap, this.hud.setLap(this.shownLap);
-      this.hud.draw(ctrl, map, focus, this.remote, this.fuel.enabled ? this.fuel : null);
+      this.hud.draw(ctrl, map, focus, this.remote, this.fuel);
       this.hud.setDrift(this.drift);
       const a = this.audioContext;
       a.engineLevel = ctrl.engineSound, a.throttle = ctrl.throttle, a.engineOn = ctrl.engineOn, a.skid = this.skidMarks.intensity, a.sound = this.vehicles.config.sound;

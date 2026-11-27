@@ -12,9 +12,10 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /**
- * Tanque de cada carro, guardado na garagem do jogador (vale em todos os modos com combustível:
- * salas online e táxi). O jogo calcula o consumo e informa quanto resta; o servidor só deixa o
- * nível descer por aí. Subir, só abastecendo no posto, pagando o litro em moedas.
+ * Tanque e hodômetro de cada carro, guardados na garagem do jogador. O tanque vale em todos os modos
+ * com combustível (salas online e táxi): o jogo calcula o consumo e informa quanto resta; o servidor
+ * só deixa o nível descer por aí. Subir, só abastecendo no posto, pagando o litro em moedas.
+ * O hodômetro conta em qualquer modo e só sobe.
  */
 @Service
 public class FuelService {
@@ -28,7 +29,10 @@ public class FuelService {
         this.fuel = props.fuel();
     }
 
-    public record FuelState(String carId, double fuel, double tank) {}
+    public record FuelState(String carId, double fuel, double tank, double odometer) {}
+
+    /** Maior avanço do hodômetro aceito numa única informação (o jogo informa a cada ~20 s). */
+    private static final double MAX_KM_PER_REPORT = 100;
     public record RefillResult(String carId, double liters, long cost, boolean courtesy, double fuel, double tank, long coins) {}
 
     /** Litros no tanque; um carro sem registro (recém-chegado à garagem) vem com parte do tanque. */
@@ -44,17 +48,32 @@ public class FuelService {
         return out;
     }
 
-    /** O jogo informa quanto resta: o nível só desce (informar mais do que tem não enche o tanque). */
-    public FuelState report(String userId, String carId, double liters) {
-        if (Double.isNaN(liters) || liters < 0) throw ApiException.badRequest("invalid_fuel", "Nível de combustível inválido.");
+    /** Hodômetro de cada carro da garagem (vai no perfil). */
+    public Map<String, Double> odometers(UserAccount user) {
+        Map<String, Double> out = new LinkedHashMap<>();
+        for (OwnedCar owned : user.getCars()) out.put(owned.getCarId(), round(owned.getOdometer()));
+        return out;
+    }
+
+    /**
+     * O jogo informa quanto resta no tanque e o hodômetro (qualquer um pode faltar). O nível só desce
+     * (informar mais do que tem não enche o tanque) e o hodômetro só sobe, no máximo 100 km de cada vez.
+     */
+    public FuelState report(String userId, String carId, Double liters, Double odometerKm) {
+        if (liters != null && (liters.isNaN() || liters < 0))
+            throw ApiException.badRequest("invalid_fuel", "Nível de combustível inválido.");
+        if (odometerKm != null && (odometerKm.isNaN() || odometerKm.isInfinite() || odometerKm < 0))
+            throw ApiException.badRequest("invalid_odometer", "Hodômetro inválido.");
         CarCatalog.Car car = catalog.get(carId);
         return Retry.onConflict(() -> {
             UserAccount user = user(userId);
             OwnedCar owned = owned(user, carId);
-            double level = Math.min(level(car, owned), round(liters));
-            owned.setFuel(level);
+            double level = level(car, owned);
+            if (liters != null) owned.setFuel(level = Math.min(level, round(liters)));
+            if (odometerKm != null)
+                owned.setOdometer(Math.max(owned.getOdometer(), Math.min(odometerKm, owned.getOdometer() + MAX_KM_PER_REPORT)));
             users.save(user);
-            return new FuelState(carId, level, car.tankLiters());
+            return new FuelState(carId, level, car.tankLiters(), round(owned.getOdometer()));
         });
     }
 

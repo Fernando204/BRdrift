@@ -15,13 +15,14 @@ public class FuelController {
         this.fuel = fuel;
     }
 
-    public record ReportRequest(String carId, double liters) {}
+    /** liters e odometerKm são opcionais (o jogo manda os dois). */
+    public record ReportRequest(String carId, Double liters, Double odometerKm) {}
     public record RefillRequest(String carId, double currentLiters, double liters) {}
 
-    /** Quanto resta no tanque (o jogo informa de tempos em tempos enquanto o carro roda). */
+    /** Quanto resta no tanque e o hodômetro (o jogo informa de tempos em tempos enquanto o carro roda). */
     @PostMapping("/report")
     public FuelService.FuelState report(@CurrentUser String userId, @RequestBody ReportRequest body) {
-        return fuel.report(userId, body.carId(), body.liters());
+        return fuel.report(userId, body.carId(), body.liters(), body.odometerKm());
     }
 
     /** Abastecimento no posto, pago em moedas. */

@@ -23,15 +23,16 @@ public class ProfileService {
     /** Aparência de um carro: o que os outros jogadores precisam para desenhá-lo. */
     public record Look(String carId, Map<String, String> colors, double lowering) {}
 
-    /** fuel: litros no tanque de cada carro da garagem. */
+    /** fuel: litros no tanque de cada carro da garagem; odometer: km rodados com cada um. */
     public record Profile(String username, long coins, String selectedCar, boolean needsStarter,
-                          List<Look> cars, long bestDrift, long totalDriftPoints, Map<String, Double> fuel) {}
+                          List<Look> cars, long bestDrift, long totalDriftPoints, Map<String, Double> fuel,
+                          Map<String, Double> odometer) {}
 
     public Profile profile(String userId) {
         UserAccount u = user(userId);
         List<Look> owned = u.getCars().stream().map(ProfileService::look).toList();
         return new Profile(u.getUsername(), u.getCoins(), u.getSelectedCar(), owned.isEmpty(), owned,
-                u.getBestDrift(), u.getTotalDriftPoints(), fuel.levels(u));
+                u.getBestDrift(), u.getTotalDriftPoints(), fuel.levels(u), fuel.odometers(u));
     }
 
     /** Aparência do carro selecionado (usada nas salas multiplayer). */

@@ -154,8 +154,8 @@ export class HUD {
       "<button data-acao='" + id + "'" + (id ? '' : ' disabled') + '>' + text + (key && key !== '—' ? ' <kbd>' + key + '</kbd>' : '') + '</button>').join('');
   }
 
-  draw(ctrl, map, focus, remote, fuel = null) {
-    this.gauges.draw(ctrl, fuel);
+  draw(ctrl, map, focus, remote, car = null) {
+    this.gauges.draw(ctrl, car);
     map.drawMinimap(this.minimapCtx, this.minimap, focus, remote);
   }
 }

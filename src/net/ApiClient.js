@@ -45,7 +45,7 @@ export class ApiClient {
   buyCar(carId) { return this.request('POST', '/shop/buy', { carId }); }
   paint(carId, colors, fullColor) { return this.request('POST', '/garage/paint', { carId, colors, fullColor }); }
   suspension(carId, lowering) { return this.request('POST', '/garage/suspension', { carId, lowering }); }
-  fuelReport(carId, liters, keepalive = false) { return this.request('POST', '/fuel/report', { carId, liters }, keepalive); }
+  fuelReport(carId, liters, odometerKm, keepalive = false) { return this.request('POST', '/fuel/report', { carId, liters, odometerKm }, keepalive); }
   fuelRefill(carId, currentLiters, liters) { return this.request('POST', '/fuel/refill', { carId, currentLiters, liters }); }
   taxiRates() { return this.request('GET', '/taxi/rates'); }
   taxiFare(routeMeters, straightMeters, durationMs) { return this.request('POST', '/taxi/fare', { routeMeters, straightMeters, durationMs }); }
